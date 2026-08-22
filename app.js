@@ -28,6 +28,15 @@ function formatMoney(value) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 }
 
+function setPnlMetric(value) {
+  const metric = document.querySelector('#pnlMetric');
+  if (!metric) return;
+  const amount = Number(value);
+  metric.textContent = Number.isFinite(amount) ? formatMoney(amount) : '—';
+  metric.classList.toggle('pnl-positive', Number.isFinite(amount) && amount > 0);
+  metric.classList.toggle('pnl-negative', Number.isFinite(amount) && amount < 0);
+}
+
 function numericValue(record, field) {
   const raw = record?.[field];
   if (raw === undefined || raw === null || String(raw).trim() === '') return null;
@@ -647,7 +656,7 @@ async function renderInvestigationGraph(records, analysis) {
       renderAiForensics(replay.ai_forensics, replay.ledger);
       renderSnapshotIdentity(replay.snapshot_id, replay.graph.evidence_semantics);
       const summary = replay.analysis.summary;
-      document.querySelector('#pnlMetric').textContent = formatMoney(summary.pnl);
+      setPnlMetric(summary.pnl);
       document.querySelector('#pnlDetail').textContent = `As of ${formatTimestamp(visibleTime)} · ${replay.records} observations`;
     };
     scrubber.max = Math.max(0, result.graph.timeline.length - 1);
@@ -665,7 +674,7 @@ function renderDiagnosis(result, records, label) {
   activeRecords = records;
   renderStrategyProfile(result.strategy_profile);
   const summary = result.summary;
-  document.querySelector('#pnlMetric').textContent = formatMoney(summary.pnl);
+  setPnlMetric(summary.pnl);
   document.querySelector('#pnlDetail').textContent = summary.expected_pnl === null
     ? `P&L anomaly z-score ${summary.pnl_zscore}`
     : `Expected ${formatMoney(summary.expected_pnl)} · shortfall ${formatMoney(summary.implementation_shortfall)}`;
@@ -706,7 +715,7 @@ document.querySelector('#openRecordedStrategy').addEventListener('click', async 
     activeRecords = recorded.events;
     results.hidden = false;
     const pnl = recorded.events.filter((event) => event.kind === 'pnl').reduce((total, event) => total + (numericValue(event, 'pnl') || 0), 0);
-    document.querySelector('#pnlMetric').textContent = formatMoney(pnl);
+    setPnlMetric(pnl);
     document.querySelector('#pnlDetail').textContent = `${recorded.events.filter((event) => event.kind === 'pnl').length} recorded P&L marks`;
     renderSnapshotIdentity(recorded.snapshot_id, 'Recorder evidence is append-only and bound to this snapshot.');
     renderStrategyProfile(recorded.strategy_profile);
