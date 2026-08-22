@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fundamental Alpha Debugger</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <a class="brand" href="#"><span>Q</span> Alpha Debugger</a>
+        <p>Local post-mortems for quants</p>
+      </header>
+
+      <section class="hero">
+        <div><p class="eyebrow"><i></i> FUNDAMENTAL ALPHA POST-MORTEM</p><h1>Find the first thing that broke.</h1><p class="lede">Record a strategy’s decisions, then get a clear root-cause candidate and a flow explaining how it reached P&amp;L.</p></div>
+      </section>
+
+      <section class="run-card">
+        <div class="run-card-head"><div><h2>Analyse an existing incident</h2><p id="engineHint">Upload the evidence you already have. Use one combined CSV, or fundamental data plus strategy P&amp;L.</p></div><span class="status" id="engineState">Ready</span></div>
+        <div class="actions"><input id="csvInput" type="file" accept=".csv" hidden><input id="marketCsvInput" type="file" accept=".csv" hidden><input id="strategyCsvInput" type="file" accept=".csv" hidden><input id="incidentBundleInput" type="file" accept=".json" hidden><button class="button secondary" id="uploadData">Upload one incident CSV</button><button class="button secondary" id="uploadBundle">Upload fundamentals + P&amp;L</button><button class="button secondary" id="uploadIncidentBundle">Validate Incident Bundle v1</button></div>
+      </section>
+
+      <section class="recorder-card">
+        <div class="run-card-head"><div><p class="eyebrow">LOCAL FLIGHT RECORDER</p><h2>Watch a strategy without controlling it.</h2><p>Strategies can append fundamental snapshots, decisions, target weights, fills, and P&amp;L to this local app. Every event is stored immutably for later diagnosis.</p></div><span class="status" id="recorderState">No events yet</span></div>
+        <div class="recorder-actions"><button class="button secondary" id="loadFlightDemo">Run built-in test CSV</button><button class="button secondary" id="loadEvidenceDemo">Import AI contradiction demo</button><button class="text-button" id="refreshRecorder">Refresh recorder status</button></div>
+        <p class="recorder-meta" id="recorderMeta">No upload needed · uses the included synthetic incident CSV · read-only collector</p>
+      </section>
+
+      <section class="results" id="results" hidden>
+        <div class="summary-grid">
+          <article><span>INCIDENT P&amp;L</span><strong id="pnlMetric">—</strong><small id="pnlDetail">—</small></article>
+          <article><span>OUTCOME MARKS</span><strong id="recordsMetric">—</strong><small>Decision-time P&amp;L observations</small></article>
+          <article><span>FIRST MATERIAL SHIFT</span><strong id="changeMetric">—</strong><small id="changeDetail">—</small></article>
+        </div>
+        <section class="incident-timeline" id="incidentCommandCenter"><div class="timeline-head"><div><p class="eyebrow">INCIDENT COMMAND CENTER</p><h2>Local forensic triage</h2><p id="commandCenterDetail">No broker or trade actions are available.</p></div><button class="button secondary" id="exportReceipt" type="button">Export reproducibility receipt</button></div><p class="recorder-meta">Snapshot <code id="snapshotIdentity">—</code> · local-only/read-only</p><div id="counterfactualCards"></div></section>
+
+        <section class="incident-timeline" id="incidentTimeline" hidden>
+          <div class="timeline-head"><div><p class="eyebrow">INCIDENT TIMELINE</p><h2>Where did the loss happen?</h2><p>Click a marked loss to see the decision-time evidence that was available to the strategy.</p></div><span id="timelineStatus">—</span></div>
+          <div class="timeline-symbols" id="timelineSymbols" aria-label="Choose a stock to inspect"></div>
+          <div class="timeline-chart" id="timelineChart" aria-label="Incident P&amp;L timeline"></div>
+          <div class="timeline-detail" id="timelineDetail"></div>
+        </section>
+
+        <section class="incident-timeline" id="investigationGraphPanel" hidden>
+          <div class="timeline-head"><div><h2>Evidence path</h2><p>Scrub time to see the one snapshot-specific explanation path. Arrows are evidence receipts, not proof of causation.</p></div><span id="replayMoment">�</span></div>
+          <input id="replayScrubber" type="range" min="0" max="0" value="0" aria-label="Replay incident time" />
+          <div class="timeline-detail" id="investigationGraph"></div>
+        </section>
+
+        <section class="diagnosis evidence-ledger" id="evidenceLedger">
+          <div class="section-head"><div><p class="eyebrow">REPLAYABLE Evidence Ledger</p><h2 id="diagnosisTitle">Where did the decision-to-P&amp;L chain first break?</h2><p id="diagnosisSubtitle">Each step is a retained record. Status tells you whether the supplied evidence supports, misses, contradicts, or invalidates the link.</p></div></div>
+          <div class="ledger-path" id="ledgerPath" aria-live="polite"></div>
+          <article class="ledger-receipt" id="ledgerReceipt" hidden><p class="eyebrow">SELECTED EVIDENCE RECEIPT</p><h3 id="ledgerReceiptTitle">Select a ledger step</h3><p id="ledgerReceiptDetail">The raw record, source, timestamp, and link status will appear here.</p></article>
+          <section class="ai-forensics" id="aiForensics" hidden></section>
+          <article class="root-hypothesis" id="rootHypothesis" hidden><span id="rootKicker">LEADING ROOT-CAUSE CANDIDATE</span><strong id="rootLabel">—</strong><p id="rootDetail">—</p><div class="root-candidates" id="rootCandidates"></div></article>
+          <div class="branches" id="branches"></div>
+          <section class="confirmation-plan" id="confirmationPlan" hidden><p class="eyebrow">HOW TO CONFIRM OR REJECT THIS</p><h3>Next investigation steps</h3><ol id="confirmationSteps"></ol></section>
+          <details class="evidence-checks"><summary>Show detailed evidence checks</summary><div class="audit-compact" id="faultAudit"><p class="eyebrow">FUNDAMENTAL THESIS</p><div class="fault-domains" id="faultDomains"></div></div><div class="audit-compact" id="alphaAudit"><p class="eyebrow">ALPHA AND PORTFOLIO</p><div class="fault-domains" id="alphaDomains"></div></div><div class="audit-compact" id="patternAudit"><p class="eyebrow">PATTERN DISCOVERY</p><div class="fault-domains" id="patternDiscovery"></div></div></details>
+          <p class="disclaimer">A ledger link is evidence, not universal proof of economic causality.</p>
+        </section>
+      </section>
+    </main>
+
+    <aside class="drawer" id="drawer" aria-hidden="true"><button class="drawer-close" id="closeDrawer">×</button><p class="eyebrow">ARROW EVIDENCE</p><h2 id="drawerTitle">Select an arrow</h2><p id="drawerCopy">This is the evidence behind one step in the flow.</p><div class="stats" id="edgeStats"></div><p class="drawer-note">This relationship is a hypothesis. Challenge it with the confirmation steps before acting on it.</p></aside>
+    <div class="backdrop" id="backdrop"></div><div class="toast" id="toast"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

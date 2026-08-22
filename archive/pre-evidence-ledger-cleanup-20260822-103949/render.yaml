@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: quant-doctor
+    runtime: docker
+    autoDeployTrigger: commit
+    healthCheckPath: /healthz

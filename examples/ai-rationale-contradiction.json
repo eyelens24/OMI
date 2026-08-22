@@ -1,0 +1,71 @@
+{
+  "schema": "omi-evidence-bundle/v1",
+  "label": "Demo: AI rationale contradicts decision-time feature snapshot",
+  "events": [
+    {
+      "kind": "observation",
+      "event_id": "obs-earnings-001",
+      "timestamp": "2026-01-15T09:20:00Z",
+      "available_at": "2026-01-15T09:20:00Z",
+      "source": "demo-fundamentals/v1",
+      "feature_snapshot_id": "features-2026-01-15-0920",
+      "detail": "Retained earnings revision feature was -12.0%."
+    },
+    {
+      "kind": "decision",
+      "event_id": "decision-001",
+      "parent_id": "obs-earnings-001",
+      "timestamp": "2026-01-15T09:30:00Z",
+      "available_at": "2026-01-15T09:20:00Z",
+      "strategy_id": "demo-ai-equity",
+      "strategy_version": "2026.01-demo",
+      "model_version": "ranker-42",
+      "feature_snapshot_id": "features-2026-01-15-0920",
+      "action": "BUY",
+      "target_weight": 0.05,
+      "score": 0.81,
+      "reason_codes": ["positive_earnings_revision"],
+      "feature_values": {"earnings_revision": -0.12},
+      "detail": "AI selected DEMO despite the retained negative earnings-revision input."
+    },
+    {
+      "kind": "target",
+      "event_id": "target-001",
+      "parent_id": "decision-001",
+      "timestamp": "2026-01-15T09:31:00Z",
+      "target_weight": 0.05,
+      "detail": "Optimizer targeted a 5.0% long position."
+    },
+    {
+      "kind": "fill",
+      "event_id": "fill-001",
+      "parent_id": "target-001",
+      "timestamp": "2026-01-15T09:32:00Z",
+      "symbol": "DEMO",
+      "quantity": 500,
+      "price": 100.00,
+      "detail": "Paper fill completed at the intended quantity."
+    },
+    {
+      "kind": "position",
+      "event_id": "position-001",
+      "parent_id": "fill-001",
+      "timestamp": "2026-01-15T09:33:00Z",
+      "quantity": 500,
+      "detail": "Position reconciled to the paper fill."
+    },
+    {
+      "kind": "pnl",
+      "event_id": "pnl-001",
+      "parent_id": "position-001",
+      "timestamp": "2026-01-15T16:00:00Z",
+      "pnl": -4250.00,
+      "detail": "Marked end-of-day P&L for the reconciled position."
+    }
+  ],
+  "expected_demo_result": {
+    "first_break": null,
+    "ai_provenance_status": "contradicted",
+    "expected_conclusion": "The lifecycle reconciles through P&L. The retained AI rationale contradicts its retained decision-time feature input; execution is not the supported failure point."
+  }
+}
