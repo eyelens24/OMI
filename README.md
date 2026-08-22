@@ -31,7 +31,7 @@ The project is organized by concern so the code, data, and historical archives a
 
 - `omi_core/` — core Python logic for evidence, attribution, and investigation graphs.
 - `tests/` — regression and behavior tests for the forensic pipeline.
-- `sample_data/` — bundled CSV fixtures and synthetic data generators.
+- `sample_data/full_product_demo.csv` — the single bundled presentation CSV and its generator.
 - `e2e/` — browser-based Playwright end-to-end checks.
 - `examples/` — example payloads and demonstration artifacts.
 - `archive/` — historical or superseded experiment notes and deployment artifacts.
@@ -317,7 +317,9 @@ C:\conda2\python.exe
 
 ## Presentation-ready demo
 
-For the clearest product walkthrough, begin with **Run full product CSV demo**. It loads [`sample_data/full_product_demo.csv`](sample_data/full_product_demo.csv), a synthetic trading history with changing share positions, BUY/SELL/HOLD actions, saved reasons, model inputs, execution records, and P&L. OMI detects those fields from the file and adapts the position chart and action receipt automatically.
+For the clearest product walkthrough, click **Run complete CSV demo**. It loads [`sample_data/full_product_demo.csv`](sample_data/full_product_demo.csv), the one bundled CSV. It contains five independent strategies with changing share positions, BUY/SELL/HOLD actions, saved reasons, strategy-specific inputs, execution records, and P&L. OMI detects those fields and adapts the position chart and action receipt automatically.
+
+The stocks deliberately do not trade together. AAPL uses RSI mean reversion, MSFT uses 20-day momentum, NVDA uses a volatility gate, JPM uses bank-fundamental signals, and XOM uses oil momentum and inventory information. Their decisions therefore occur at different times and produce different position paths.
 
 ### What to say and show
 
@@ -325,7 +327,7 @@ For the clearest product walkthrough, begin with **Run full product CSV demo**. 
 
    > “OMI is a local, read-only forensic tool. It does not trade, change accounts, or invent a reason for a loss.”
 
-2. Click **Run full product CSV demo**. Choose a stock and show its position history. The line is how many shares were held; the coloured dots are the recorded BUY, SELL, and HOLD actions. Click anywhere on the line.
+2. Click **Run complete CSV demo**. Choose a stock and show its position history. The line is how many shares were held; the coloured dots are the recorded BUY, SELL, and HOLD actions. Click anywhere on the line, then switch symbols to show that each strategy responds to different inputs.
 
    > “This is the algorithm’s position over time—not an abstract buy/sell score. Every point can be inspected.”
 
@@ -356,14 +358,6 @@ For the clearest product walkthrough, begin with **Run full product CSV demo**. 
 
    > “This proves that the record chain is complete and time-valid. It does *not* prove that the model economically caused a loss. It proves exactly what OMI is permitted to say from the evidence.”
 
-7. Click **Import AI contradiction demo**. The chain remains complete, but the AI receipt is `CONTRADICTED`: the recorded rationale claims a positive earnings revision while the retained feature value is negative.
-
-   > “OMI separates execution lineage from explanation quality. A complete trade chain does not make an invalid rationale acceptable.”
-
-8. Click **Run built-in test CSV** and show how OMI states that position/action history is unavailable when the CSV did not retain it.
-
-   > “This CSV is enough to identify and replay a P&L pattern, but it does not retain the actual order and decision records. OMI shows the gap instead of filling it with a plausible narrative.”
-
 ### Suggested 90-second presentation script
 
 > “OMI is a flight recorder for trading algorithms. The position line shows how many shares the algorithm held over time. I can click any point and see the latest action, why it acted, what actually traded, and every saved market or model input available beforehand. The dashboard is not tied to a fixed indicator list: it discovers the fields supplied by each strategy. Underneath, the evidence chain verifies that the observation, decision, target, fill, position, and P&L records really connect. If the file did not retain an action or input, OMI says so instead of inventing an explanation.”
@@ -380,7 +374,7 @@ For the clearest product walkthrough, begin with **Run full product CSV demo**. 
 
 ### Complete-example format
 
-The built-in full-workflow CSV is [`sample_data/full_product_demo.csv`](sample_data/full_product_demo.csv); the app loads it through **Run full product CSV demo**. It contains both analytic features and lifecycle IDs, so it drives the entire product rather than only the ledger. [`sample_data/complete_evidence_ledger.csv`](sample_data/complete_evidence_ledger.csv) remains the small six-row structural example. The equivalent copyable JSON Evidence Bundle is [`examples/complete-evidence-ledger.json`](examples/complete-evidence-ledger.json), which can be submitted to `POST /api/evidence-bundle/validate`.
+The only bundled CSV is [`sample_data/full_product_demo.csv`](sample_data/full_product_demo.csv); the app loads it through **Run complete CSV demo**. It contains analytic inputs plus complete lifecycle IDs, so one file demonstrates strategy detection, point-in-time inputs, decisions, targets, fills, positions, P&L, replay, and the evidence ledger. The equivalent copyable JSON Evidence Bundle is [`examples/complete-evidence-ledger.json`](examples/complete-evidence-ledger.json), which can be submitted to `POST /api/evidence-bundle/validate`.
 
 Every event needs these base fields:
 
@@ -414,7 +408,7 @@ That is an honest import result, not dropped data or a product failure.
 
 ### Demo workflow for the analysis/replay experience
 
-1. Open OMI and click **Run built-in test CSV**.
+1. Open OMI and click **Run complete CSV demo**.
 2. Inspect the incident timeline and select a material loss.
 3. Read the **Explanation built from your data** flow:
    ```text
@@ -425,7 +419,7 @@ That is an honest import result, not dropped data or a product failure.
 6. Select a different loss, then reselect the first loss. The snapshot and explanation must return to the same values.
 7. Export a reproducibility receipt when available.
 
-All bundled demos are synthetic. They demonstrate deterministic mechanics and known-truth regression scenarios; they do not establish real broker, vendor, or market truth.
+The bundled CSV is synthetic. It demonstrates deterministic mechanics and a complete evidence workflow; it does not establish real broker, vendor, or market truth.
 
 ---
 

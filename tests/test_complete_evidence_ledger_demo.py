@@ -23,14 +23,6 @@ class CompleteEvidenceLedgerDemoTests(unittest.TestCase):
         self.assertIsNone(ledger["first_break"])
         self.assertEqual(assess_ai_decision(decision)["status"], "supported")
 
-    def test_complete_csv_demo_reconciles_every_lifecycle_step(self):
-        imported = validate_event_bundle({"events": load_sample("complete-ledger")})
-        ledger = ledger_for_records(imported["events"])
-
-        self.assertEqual(imported["accepted"], 6)
-        self.assertFalse(imported["rejected"])
-        self.assertEqual([step["status"] for step in ledger["steps"]], ["supported"] * 6)
-
     def test_full_product_csv_has_analysis_window_and_complete_ledger(self):
         records = load_sample("full-product")
         ledger = ledger_for_records(records)
@@ -43,6 +35,25 @@ class CompleteEvidenceLedgerDemoTests(unittest.TestCase):
         positions = [int(row["position_quantity"]) for row in records if row["kind"] == "position"]
         self.assertGreater(len(set(positions)), 2)
         self.assertTrue(any(int(row["fill_quantity"]) < 0 for row in records if row["kind"] == "fill"))
+
+    def test_symbols_use_distinct_action_schedules_and_indicators(self):
+        records = load_sample("full-product")
+        decisions = [row for row in records if row["kind"] == "decision"]
+        schedules = {
+            symbol: tuple(row["action"] for row in decisions if row["symbol"] == symbol)
+            for symbol in {row["symbol"] for row in decisions}
+        }
+        self.assertEqual(len(schedules), 5)
+        self.assertEqual(len(set(schedules.values())), 5)
+        expected_inputs = {
+            "AAPL": "rsi_14", "MSFT": "momentum_20d_pct", "NVDA": "implied_volatility",
+            "JPM": "net_interest_margin_trend", "XOM": "oil_momentum_20d_pct",
+        }
+        for symbol, field in expected_inputs.items():
+            symbol_decisions = [row for row in decisions if row["symbol"] == symbol]
+            self.assertTrue(all(row[field] not in (None, "") for row in symbol_decisions))
+            other_fields = set(expected_inputs.values()) - {field}
+            self.assertTrue(all(all(row[other] == "" for other in other_fields) for row in symbol_decisions))
 
     def test_full_product_replay_window_keeps_one_complete_lineage(self):
         records = load_sample("full-product")

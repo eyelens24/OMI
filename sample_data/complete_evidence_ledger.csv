@@ -1,7 +1,0 @@
-kind,event_id,parent_id,timestamp,available_at,decision_timestamp,symbol,strategy_id,strategy_version,model_version,feature_snapshot_id,action,detail
-observation,obs-20250816-0925,,2025-08-16T09:25:00Z,2025-08-16T09:25:00Z,,DEMO,,,,,,Point-in-time earnings and valuation snapshot retained before the decision.
-decision,decision-20250816-0930,obs-20250816-0925,2025-08-16T09:30:00Z,2025-08-16T09:25:00Z,2025-08-16T09:30:00Z,DEMO,demo-quality-equity,2025.08-demo,quality-ranker-1.0,features-2025-08-16-0925,BUY,The retained model run selected DEMO for a 5.0% long target.
-target,target-20250816-0931,decision-20250816-0930,2025-08-16T09:31:00Z,,,,,,,,,Portfolio construction translated the decision into a 500-share 5.0% target.
-fill,fill-20250816-0932,target-20250816-0931,2025-08-16T09:32:00Z,,,,,,,,,Order filled at the intended 500-share quantity.
-position,position-20250816-0933,fill-20250816-0932,2025-08-16T09:33:00Z,,,,,,,,,Custody position reconciled to the completed fill.
-pnl,pnl-20250816-1600,position-20250816-0933,2025-08-16T16:00:00Z,,,,,,,,,End-of-day P&L mark for the reconciled 500-share position.

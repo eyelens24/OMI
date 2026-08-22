@@ -148,7 +148,7 @@ def synthetic_incident():
 
 
 def load_sample(name):
-    allowed = {"failure": "market_failure.csv", "normal": "market_normal.csv", "fundamental": "fundamental_failure.csv", "mixed": "mixed_incident.csv", "complete-ledger": "complete_evidence_ledger.csv", "full-product": "full_product_demo.csv"}
+    allowed = {"full-product": "full_product_demo.csv"}
     if name not in allowed:
         raise ValueError("Unknown sample dataset.")
     with (ROOT / "sample_data" / allowed[name]).open(newline="") as handle:
@@ -293,20 +293,20 @@ def typed_events_to_outcome_records(events):
 
 
 def demo_flight_events():
-    """Emit the bundled multi-stock incident as if it had been recorded live."""
-    strategy_id = "demo_mixed_fundamental_alpha"
+    """Emit the one canonical CSV through the live-recorder event contract."""
+    event_types = {value: key for key, value in FLIGHT_TO_LIFECYCLE.items()}
     events = []
-    fundamental_fields = {"earnings_revision_pct", "earnings_surprise_pct", "revenue_growth_yoy", "eps_growth_yoy", "free_cash_flow_yield", "valuation_percentile", "debt_to_ebitda", "interest_coverage", "fundamental_age_days", "as_of_lag_days", "revision_lag_days", "return", "price"}
-    decision_fields = {"alpha_score", "expected_return", "information_coefficient", "rank_ic", "action", "target_position", "decision_reason"}
-    portfolio_fields = {"weight_error_bps", "target_actual_weight_gap_bps", "target_weight"}
-    for row in load_sample("mixed"):
-        shared = {"strategy_id": strategy_id, "timestamp": row["timestamp"], "symbol": row.get("symbol")}
-        events.extend((
-            {**shared, "event_type": "fundamental_snapshot", "data": {field: row[field] for field in fundamental_fields if field in row}},
-            {**shared, "event_type": "strategy_decision", "data": {field: row[field] for field in decision_fields if field in row}},
-            {**shared, "event_type": "portfolio_target", "data": {field: row[field] for field in portfolio_fields if field in row}},
-            {**shared, "event_type": "pnl_mark", "data": {field: row[field] for field in ("pnl", "equity") if field in row}},
-        ))
+    for row in load_sample("full-product"):
+        kind = row.get("kind")
+        data = {key: value for key, value in row.items() if key not in {"timestamp", "symbol", "event_id", "strategy_id"} and value not in (None, "")}
+        events.append({
+            "event_id": row.get("event_id"),
+            "strategy_id": "demo-independent-strategies",
+            "event_type": event_types[kind],
+            "timestamp": row["timestamp"],
+            "symbol": row.get("symbol"),
+            "data": data,
+        })
     return [normalise_flight_event(event) for event in events]
 
 
@@ -1450,15 +1450,6 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/synthetic-scenarios":
             self.respond({"scenarios": scenario_catalog()})
-            return
-        if self.path == "/api/sample/failure":
-            self.respond({"records": load_sample("failure"), "label": "market_failure.csv"})
-            return
-        if self.path == "/api/sample/fundamental":
-            self.respond({"records": load_sample("fundamental"), "label": "fundamental_failure.csv"})
-            return
-        if self.path == "/api/sample/complete-ledger":
-            self.respond({"records": load_sample("complete-ledger"), "label": "complete_evidence_ledger.csv"})
             return
         if self.path == "/api/sample/full-product":
             self.respond({"records": load_sample("full-product"), "label": "full_product_demo.csv"})

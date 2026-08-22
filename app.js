@@ -686,18 +686,6 @@ function parseCsv(text) {
   return lines.filter(Boolean).map((line) => Object.fromEntries(fields.map((field, index) => [field, line.split(',')[index]?.trim()])));
 }
 
-document.querySelector('#loadFlightDemo').addEventListener('click', async () => {
-  try {
-    setRunning('Loading the built-in test CSV and rebuilding its decision-time evidence…');
-    const response = await fetch('/api/flight-recorder/demo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Could not run the built-in test CSV.');
-    renderRecorderStatus(result.status);
-    renderDiagnosis(result.analysis, result.records, 'Built-in test CSV diagnosed through the local flight recorder');
-    document.querySelector('#engineHint').textContent = `Built-in fundamental_failure.csv analysed · ${result.status.events.toLocaleString()} local evidence events · no upload or broker connection used`;
-  } catch (error) { document.querySelector('#engineState').textContent = 'Run failed'; notify(error.message); }
-});
-
 document.querySelector('#openRecordedStrategy').addEventListener('click', async () => {
   try {
     setRunning('Opening the newest strategy captured by the local OMI recorder…');
@@ -731,32 +719,14 @@ document.querySelector('#openRecordedStrategy').addEventListener('click', async 
   }
 });
 
-document.querySelector('#loadEvidenceDemo').addEventListener('click', async () => {
-  try {
-    setRunning('Importing the local AI rationale contradiction bundle…');
-    const bundleResponse = await fetch('/examples/ai-rationale-contradiction.json');
-    const bundle = await bundleResponse.json();
-    const response = await fetch('/api/evidence-bundle/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bundle) });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Could not validate the AI demo bundle.');
-    activeRecords = result.events;
-    document.querySelector('#results').hidden = false;
-    document.querySelector('#snapshotIdentity').textContent = 'demo-ai-contradiction';
-    renderLedger(result.ledger);
-    renderAiForensics(result.ai_forensics, result.ledger);
-    document.querySelector('#engineState').textContent = 'Demo ready';
-    document.querySelector('#engineHint').textContent = 'Local AI decision evidence imported · lifecycle reconciles · rationale contradiction detected.';
-  } catch (error) { document.querySelector('#engineState').textContent = 'Import failed'; notify(error.message); }
-});
-
 document.querySelector('#loadCompleteLedgerDemo').addEventListener('click', async () => {
   try {
-    setRunning('Loading the local full-product CSV demo…');
+    setRunning('Loading the complete multi-strategy CSV demo…');
     const sampleResponse = await fetch('/api/sample/full-product');
     const sample = await sampleResponse.json();
     if (!sampleResponse.ok) throw new Error(sample.error || 'Could not load the full-product CSV.');
-    await diagnose(sample.records, 'Built-in full-product CSV demo');
-    document.querySelector('#engineHint').textContent = 'Full local CSV analysed · changing share positions, action reasons, dynamic model inputs, execution, and P&L included · no broker connection used.';
+    await diagnose(sample.records, 'Built-in complete CSV demo');
+    document.querySelector('#engineHint').textContent = 'Complete CSV analysed · each stock uses different indicators and trades at independent times · decisions, fills, positions, and P&L included.';
   } catch (error) { document.querySelector('#engineState').textContent = 'Import failed'; notify(error.message); }
 });
 
