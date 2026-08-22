@@ -1,95 +1,96 @@
-# Doctor Quant
+# Doctor Quant — Decision-to-P&L Incident Forensics
 
-A local, read-only forensic tool for systematic trading incidents. It does not trade, route orders, or change broker accounts.
+[Click here to test demo](https://doctorquant.onrender.com)
+Demo may take up to a minute to load, please be patient.
 
-At any point in a position history it shows what the algorithm knew, what it decided, what it intended to own, what actually filled, and which evidence links that chain to P&L.
+Doctor Quant is a **forensic tool** for investigating trading incidents — moments where an algorithm made a decision and someone needs to know why.
 
-## Install and start
+It is **not** a trading bot, broker terminal, or execution tool. It never places orders and never touches a live account.
 
-Requires Python 3.10 or newer and a web browser. `requirements.txt` is empty because the app uses only the Python standard library.
+## The core question
 
-Confirm Python:
+For any point in a position's history, Doctor Quant answers:
 
-```text
-Windows:  py -3 --version
-macOS:    python3 --version
+> What did the algorithm know? What did it decide? What did it intend to do? What actually happened? And what evidence connects each of those steps to the final P&L?
+
+It packages the answer into a single **Decision Receipt**:
+
+```
+position before → BUY / SELL / HOLD → why → what was known beforehand
+→ intended size → actual execution → position after → P&L → trust status
 ```
 
-### Windows
+## The guiding principle: no evidence, no story
 
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python .\run-doctorquant.py
+Doctor Quant refuses to make up a tidy explanation. It only shows the rationale and data that were actually retained at decision time, then labels the chain connecting them as one of:
+
+| Status | Meaning |
+|---|---|
+| **Supported** | The records link together and check out — no gaps. |
+| **Missing** | A required record was never supplied. |
+| **Contradicted** | Two records disagree with each other. |
+| **Time-invalid** | A piece of evidence only existed *after* the decision it's supposedly explaining (lookahead). |
+| **Inferred** | A reasonable hypothesis from patterns — not a proven fact. |
+
+A fluent-sounding story is not proof. If the evidence isn't there, Doctor Quant says so instead of inventing a cause.
+
+## How an investigation is structured
+
+Every incident is treated as a chain of six kinds of evidence:
+
+```
+observation → decision → target → fill → position → P&L
 ```
 
-If PowerShell blocks activation, run `.\.venv\Scripts\python.exe .\run-doctorquant.py` instead. You can also double-click `Start-DoctorQuant-Server.cmd`.
+- **Observation** — a data point available to the algorithm (a price, a fundamental, a sentiment score).
+- **Decision** — the algorithm's choice, and its stated reason.
+- **Target** — the position size it intended to reach.
+- **Fill** — what actually got executed.
+- **Position** — the resulting holdings.
+- **P&L** — the outcome.
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Leave the terminal open; press `Ctrl+C` to stop.
+Doctor Quant walks this chain and checks each link. A key rule: a piece of evidence can only support a decision if it was actually available *before* that decision was made (`available_at <= decision_timestamp`). Data that was revised or published later doesn't count, even if it "looks like" it should have been known.
 
-### macOS
+## What it looks like in use
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python run-doctorquant.py
+The bundled demo loads five independent strategies (AAPL/RSI, MSFT/momentum, NVDA/volatility, JPM/fundamentals, XOM/oil signals), each with its own position history. Clicking any point on a strategy's position line surfaces:
+
+- the **action** taken (buy/sell/hold) and the **reason** recorded for it
+- **what the algorithm knew** — every indicator available at that moment
+- the full **evidence chain**, card by card, with each link's status
+- a **replay** view that reconstructs the investigation using only evidence that existed by a chosen point in time — reproducible, not regenerated from scratch each time
+
+## Diagnosing AI/model-driven decisions
+
+For an algorithm driven by a model, "why did it do that" needs more than a final score — it needs **decision provenance**: which model version, which exact inputs, which parameters, and a structured (not just narrative) reason.
+
+Doctor Quant distinguishes between different kinds of failure, depending on what evidence exists:
+
+| Failure type | What it looks like |
+|---|---|
+| **Input/data failure** | The model used stale or since-revised data. |
+| **Model/policy failure** | The model made a call that its own inputs don't support. |
+| **Portfolio translation failure** | The decision didn't turn into the intended target position. |
+| **Execution failure** | The target was right, but the fill diverged from it. |
+| **Accounting failure** | The reported P&L doesn't reconcile with the actual position. |
+| **Market failure** | The loss is explained by the market, not by anything the algorithm did wrong. |
+| **Explanation failure** | The model's stated rationale contradicts its own recorded inputs. |
+
+If a model's decisions weren't recorded with enough detail, Doctor Quant won't guess — it reports plainly that the cause can't be established from what's available.
+
+## CSV vs. a full Evidence Bundle
+
+A simple CSV of timestamps and P&L is enough for statistical analysis and replay, but it can't prove a specific decision → order → position chain — for that, Doctor Quant needs a full **Evidence Bundle** with all six event types and their linking IDs. Using a plain CSV instead is still useful, it just honestly shows more of the chain as "missing" rather than "supported."
+
+## What Doctor Quant can and can't claim
+
+**Can:** whether a link in the evidence chain exists, whether it's time-valid, whether the numbers reconcile, and exactly what's missing or contradictory.
+
+**Can't:** prove real-world economic cause-and-effect from a complete record chain alone, or from correlation, or from synthetic data.
+
+```
+Complete record chain + reconciliation  ≠  proof of economic causality
+Missing record chain                    ≠  permission to invent a story
 ```
 
-Or run `./start-doctorquant.sh` / double-click `Start-DoctorQuant.command` after `chmod +x start-doctorquant.sh Start-DoctorQuant.command`.
-
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Press `Control+C` to stop.
-
-### Another port
-
-```powershell
-$env:PORT = "8001"
-python .\run-doctorquant.py
-```
-
-```bash
-PORT=8001 python run-doctorquant.py
-```
-
-Then open `http://127.0.0.1:8001`. Recorder examples must use the same `--server` URL.
-
-## Run the demo
-
-1. Start Doctor Quant and open the dashboard.
-2. Click **Run complete CSV demo**.
-3. Choose AAPL, MSFT, NVDA, JPM, or XOM.
-4. Click any point on the position line.
-5. Read the **Algorithm Action Receipt**. Expand **What the algorithm knew** and **Verification Details** as needed.
-
-Each stock uses a different strategy (RSI, momentum, volatility, bank fundamentals, oil). The demo CSV is [`sample_data/full_product_demo.csv`](sample_data/full_product_demo.csv).
-
-## Analyse your own data
-
-- **Upload one incident CSV** — needs `timestamp` and, for statistical analysis, `pnl` (at least 50 rows). Useful extras: `symbol`, `action`, `decision_reason`, `position_quantity`.
-- **Upload fundamentals + P&L** — two CSVs joined on `timestamp`/`symbol` without using future data.
-- **Open latest recorded strategy** — keep the app running and, in a second terminal, post events from an instrumented strategy:
-
-```powershell
-py -3 .\examples\instrumented_strategy.py --server http://127.0.0.1:8000
-```
-
-```bash
-python3 examples/instrumented_strategy.py --server http://127.0.0.1:8000
-```
-
-The recorder observes; it never places an order. See [`examples/instrumented_strategy.py`](examples/instrumented_strategy.py) and [`doctorquant_core/recorder.py`](doctorquant_core/recorder.py).
-
-Receipt statuses: **supported**, **missing**, **contradicted**, **time-invalid**, or **inferred**. Doctor Quant does not invent missing actions or reasons.
-
-## Tests
-
-```powershell
-py -3 -m unittest discover -s tests -q
-```
-
-```bash
-python3 -m unittest discover -s tests -q
-```
-
-Optional: `node --check app.js` and `npx playwright test`.
+That restraint is the whole point — Doctor Quant isn't built to make a loss sound explained. It's built to make the evidence trail impossible to fake.
