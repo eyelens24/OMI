@@ -61,6 +61,15 @@ class HardeningApiTests(unittest.TestCase):
         self.assertEqual(result["snapshot_id"], result["analysis"]["snapshot_id"])
         self.assertEqual(result["snapshot_id"], result["graph"]["snapshot_id"])
 
+    def test_short_replay_still_returns_a_decision_receipt(self):
+        short_rows = rows(3)
+        status, result = self.post("/api/investigation/replay", {"records": short_rows, "as_of": short_rows[-1]["timestamp"], "source": "test"})
+
+        self.assertEqual(status, 200)
+        self.assertTrue(result["evidence_ready"])
+        self.assertFalse(result["analysis_ready"])
+        self.assertIn("ledger", result)
+
     def test_command_center_and_receipt_expose_local_read_only_forensics(self):
         status, command = self.post("/api/incident-command", {"records": rows(), "label": "test incident"})
         self.assertEqual(status, 200)

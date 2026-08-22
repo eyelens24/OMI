@@ -10,20 +10,51 @@ def assess_lifecycle(events):
     for event in events:
         if event.get("kind") in by_type:
             by_type[event["kind"]].append(event)
-    steps, previous_ids = [], set()
+    for rows in by_type.values():
+        rows.sort(key=lambda item: str(item.get("timestamp", "")))
+
+    # A replay window can begin in the middle of another event cycle. Select one
+    # actual lineage backwards from its newest P&L record, instead of combining
+    # the first observation from one cycle with the first decision from another.
+    # If no P&L record exists, retain the deterministic earliest-record fallback.
+    by_id = {str(row["event_id"]): row for rows in by_type.values() for row in rows if row.get("event_id")}
+    selected = {}
+    cursor = by_type["pnl"][-1] if by_type["pnl"] else None
+    if cursor:
+        selected["pnl"] = cursor
+        for kind in reversed(LIFECYCLE[:-1]):
+            parent = by_id.get(str(cursor.get("parent_id"))) if cursor.get("parent_id") else None
+            if not parent or parent.get("kind") != kind:
+                break
+            selected[kind] = parent
+            cursor = parent
+
+    steps, previous_id = [], None
     for kind in LIFECYCLE:
         rows = by_type[kind]
         if not rows:
             steps.append({"kind": kind, "status": "missing", "detail": f"No {kind} evidence supplied."})
             continue
-        row = sorted(rows, key=lambda item: str(item.get("timestamp", "")))[0]
+        row = selected.get(kind, rows[0])
         status = "supported"
-        if kind != "observation" and row.get("parent_id") and str(row["parent_id"]) not in previous_ids:
+        if kind != "observation" and row.get("parent_id") and str(row["parent_id"]) != previous_id:
             status = "contradicted"
         if row.get("available_at") and row.get("timestamp") and str(row["available_at"]) > str(row["timestamp"]):
             status = "time_invalid"
-        steps.append({"kind": kind, "status": status, "event_id": row.get("event_id"), "detail": row.get("detail", f"{kind} evidence recorded.")})
-        previous_ids = {str(item["event_id"]) for item in rows if item.get("event_id")}
+        steps.append({
+            "kind": kind,
+            "status": status,
+            "event_id": row.get("event_id"),
+            "action": row.get("action") if kind == "decision" else None,
+            "symbol": row.get("symbol") if kind == "decision" else None,
+            "target_weight": row.get("target_weight"),
+            "target_quantity": row.get("target_quantity"),
+            "quantity": row.get("quantity") or row.get("fill_quantity") or row.get("position_quantity"),
+            "price": row.get("price"),
+            "pnl": row.get("pnl"),
+            "detail": row.get("detail", f"{kind} evidence recorded."),
+        })
+        previous_id = str(row["event_id"]) if row.get("event_id") else None
     return steps
 
 

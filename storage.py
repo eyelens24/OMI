@@ -120,3 +120,16 @@ class InvestigationStore:
             count, latest = connection.execute(f"SELECT COUNT(*), MAX(event_timestamp) FROM flight_events{where}", parameters).fetchone()
             types = connection.execute(f"SELECT event_type, COUNT(*) FROM flight_events{where} GROUP BY event_type ORDER BY event_type", parameters).fetchall()
         return {"strategy_id": strategy_id, "events": count, "latest_event_timestamp": latest, "by_type": {event_type: total for event_type, total in types}}
+
+    def flight_strategies(self):
+        """List recorded strategies with the newest evidence first."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                """SELECT strategy_id, COUNT(*), MAX(event_timestamp)
+                FROM flight_events GROUP BY strategy_id
+                ORDER BY MAX(event_timestamp) DESC, strategy_id"""
+            ).fetchall()
+        return [
+            {"strategy_id": row[0], "events": row[1], "latest_event_timestamp": row[2]}
+            for row in rows
+        ]

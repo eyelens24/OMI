@@ -1,0 +1,82 @@
+{
+  "schema": "omi-evidence-bundle/v1",
+  "label": "Demo: complete decision-to-P&L evidence chain",
+  "events": [
+    {
+      "kind": "observation",
+      "event_id": "obs-earnings-20250816-0925",
+      "timestamp": "2025-08-16T09:25:00Z",
+      "available_at": "2025-08-16T09:25:00Z",
+      "source": "demo-fundamentals/v1",
+      "symbol": "DEMO",
+      "feature_snapshot_id": "features-2025-08-16-0925",
+      "detail": "Point-in-time earnings and valuation snapshot retained before the decision."
+    },
+    {
+      "kind": "decision",
+      "event_id": "decision-20250816-0930",
+      "parent_id": "obs-earnings-20250816-0925",
+      "timestamp": "2025-08-16T09:30:00Z",
+      "decision_timestamp": "2025-08-16T09:30:00Z",
+      "available_at": "2025-08-16T09:25:00Z",
+      "strategy_id": "demo-quality-equity",
+      "strategy_version": "2025.08-demo",
+      "model_version": "quality-ranker-1.0",
+      "feature_snapshot_id": "features-2025-08-16-0925",
+      "symbol": "DEMO",
+      "action": "BUY",
+      "target_weight": 0.05,
+      "score": 0.81,
+      "reason_codes": ["quality_score", "positive_earnings_revision"],
+      "feature_values": {"earnings_revision": 0.12, "quality_score": 0.81},
+      "detail": "The retained model run selected DEMO for a 5.0% long target."
+    },
+    {
+      "kind": "target",
+      "event_id": "target-20250816-0931",
+      "parent_id": "decision-20250816-0930",
+      "timestamp": "2025-08-16T09:31:00Z",
+      "symbol": "DEMO",
+      "target_weight": 0.05,
+      "target_quantity": 500,
+      "detail": "Portfolio construction translated the decision into a 500-share, 5.0% target."
+    },
+    {
+      "kind": "fill",
+      "event_id": "fill-20250816-0932",
+      "parent_id": "target-20250816-0931",
+      "timestamp": "2025-08-16T09:32:00Z",
+      "symbol": "DEMO",
+      "side": "BUY",
+      "quantity": 500,
+      "price": 100.0,
+      "fees": 2.5,
+      "venue": "DEMO-X",
+      "detail": "Order filled at the intended 500-share quantity."
+    },
+    {
+      "kind": "position",
+      "event_id": "position-20250816-0933",
+      "parent_id": "fill-20250816-0932",
+      "timestamp": "2025-08-16T09:33:00Z",
+      "symbol": "DEMO",
+      "quantity": 500,
+      "detail": "Custody position reconciled to the completed fill."
+    },
+    {
+      "kind": "pnl",
+      "event_id": "pnl-20250816-1600",
+      "parent_id": "position-20250816-0933",
+      "timestamp": "2025-08-16T16:00:00Z",
+      "symbol": "DEMO",
+      "pnl": -4250.0,
+      "detail": "End-of-day P&L mark for the reconciled 500-share position."
+    }
+  ],
+  "expected_demo_result": {
+    "ledger_statuses": ["supported", "supported", "supported", "supported", "supported", "supported"],
+    "first_break": null,
+    "ai_provenance_status": "supported",
+    "presentation_message": "The decision-to-P&L chain is complete and time-valid. OMI can prove record lineage and reconciliation, but it does not claim that the decision economically caused the loss."
+  }
+}

@@ -12,6 +12,9 @@ let activeRoot = null;
 let timelineRecords = [];
 let timelineSourceRecords = [];
 let activeTimelineSymbol = '__all__';
+let selectedTimelineIndex = null;
+let timelinePositionInfo = null;
+let timelinePositionValues = [];
 let lossDiagnosisRequest = 0;
 let replayRequest = 0;
 
@@ -26,7 +29,9 @@ function formatMoney(value) {
 }
 
 function numericValue(record, field) {
-  const value = Number(record?.[field]);
+  const raw = record?.[field];
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const value = Number(raw);
   return Number.isFinite(value) ? value : null;
 }
 
@@ -78,68 +83,95 @@ function decisionEvidence(record) {
     .map(([field, label]) => [label, record[field]]);
 }
 
+function detectPositionField(records) {
+  const candidates = [
+    { field: 'position_quantity', label: 'Shares held', unit: 'shares', kind: 'actual' },
+    { field: 'actual_position', label: 'Position held', unit: 'units', kind: 'actual' },
+    { field: 'position', label: 'Position held', unit: 'units', kind: 'actual' },
+    { field: 'target_quantity', label: 'Target shares', unit: 'shares', kind: 'target' },
+    { field: 'target_position', label: 'Target position', unit: 'units', kind: 'target' },
+    { field: 'target_weight', label: 'Portfolio weight', unit: 'weight', kind: 'target' },
+  ];
+  return candidates.find((candidate) => records.some((record) => numericValue(record, candidate.field) !== null)) || null;
+}
+
+function positionSeries(records, info) {
+  let current = null;
+  return records.map((record) => {
+    const value = info ? numericValue(record, info.field) : null;
+    if (value !== null) current = value;
+    return current;
+  });
+}
+
+function formatPosition(value, info = timelinePositionInfo) {
+  if (value === null || value === undefined || !info) return 'Position unavailable';
+  if (info.unit === 'weight') return `${(Number(value) * 100).toFixed(1)}% portfolio weight`;
+  return `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${info.unit}`;
+}
+
 function renderTimelineDetail(index) {
   const record = timelineRecords[index];
   const detail = document.querySelector('#timelineDetail');
   if (!record) return;
-  const evidence = decisionEvidence(record);
   const pnl = numericValue(record, 'pnl');
   const symbol = record.symbol ? ` · ${escapeHtml(record.symbol)}` : '';
-  const evidenceHtml = evidence.length
-    ? `<dl>${evidence.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>`
-    : `<p class="timeline-missing">No explicit decision fields were recorded for this loss. The app can show what happened to P&amp;L, but cannot honestly state why the bot chose the position. Record <code>action</code> or <code>target_position</code>, plus <code>alpha_score</code>, <code>expected_return</code>, or <code>decision_reason</code>.</p>`;
-  detail.innerHTML = `<div><p class="eyebrow">SELECTED LOSS EVENT</p><h3>${formatTimestamp(record.timestamp)}${symbol}</h3><strong>${pnl === null ? 'P&L unavailable' : `${formatMoney(pnl)} P&L`}</strong></div><div><p class="eyebrow">DECISION-TIME EVIDENCE</p>${evidenceHtml}</div>`;
-  document.querySelectorAll('[data-loss-index]').forEach((marker) => marker.classList.toggle('selected', Number(marker.dataset.lossIndex) === index));
+  const held = timelinePositionValues[index];
+  const latestAction = [...timelineRecords.slice(0, index + 1)].reverse().find((item) => ['BUY', 'SELL', 'HOLD'].includes(String(item.action || '').toUpperCase()));
+  const action = String(latestAction?.action || 'Not recorded').toUpperCase();
+  detail.innerHTML = `<div><p class="eyebrow">SELECTED POINT</p><h3>${formatTimestamp(record.timestamp)}${symbol}</h3><strong>${escapeHtml(formatPosition(held))}</strong></div><div><p class="eyebrow">LATEST RECORDED ACTION</p><h3>${escapeHtml(action)}</h3><p class="timeline-missing">${pnl === null ? 'No P&L was recorded at this exact point.' : `${escapeHtml(formatMoney(pnl))} P&amp;L was recorded at this point.`} The receipt below uses only information available by this time.</p></div>`;
+  selectedTimelineIndex = index;
+  document.querySelectorAll('[data-timeline-index]').forEach((marker) => marker.classList.toggle('selected', Number(marker.dataset.timelineIndex) === index));
+  const selection = document.querySelector('#timelineChart .timeline-selection');
+  if (selection) {
+    const selectedX = 38 + (index / Math.max(1, timelineRecords.length - 1)) * (960 - 76);
+    selection.setAttribute('x1', selectedX);
+    selection.setAttribute('x2', selectedX);
+  }
   diagnoseSelectedLoss(index);
 }
 
 async function diagnoseSelectedLoss(index) {
-  // A loss is explained only from information that existed by that timestamp.
+  // A point is explained only from information that existed by that timestamp.
   // The 160-mark lookback is deliberately local: it avoids letting a later
   // deterioration rewrite the explanation for an earlier decision.
   const lookback = 160;
   const windowStart = Math.max(0, index - lookback + 1);
   const records = timelineRecords.slice(windowStart, index + 1);
   const status = document.querySelector('#timelineStatus');
-  if (records.length < 50) {
-    status.textContent = 'Short evidence window: showing a candidate investigation route';
-    const observedPnl = numericValue(record, 'pnl');
-    // A short window may not support statistical ranking, but it must still show
-    // an honest route rather than inheriting a different event or going blank.
-    window.activeExplanationBlocks = [
-      { stage: 'Observed outcome', title: 'Recorded loss event', copy: `${observedPnl === null ? 'P&L was recorded' : `${formatMoney(observedPnl)} P&L was recorded`} at this event.`, detail: 'Observed accounting outcome.', kind: 'outcome', support: 'supported' },
-      { stage: 'Candidate route', title: 'Data, decision, translation, execution, or market layer', copy: 'The short retained history cannot rank one layer reliably.', detail: 'Evidence required: decision, target, fill, position, and point-in-time market records.', kind: 'candidate', support: 'candidate' },
-      { stage: 'Investigation outcome', title: 'Collect the missing chain before naming a cause', copy: 'OMI has produced a bounded candidate route, not a causal conclusion.', detail: 'No causal claim is made until the links reconcile.', kind: 'outcome', support: 'gap' },
-    ];
-    activeRoot = null;
-    activePaths = [];
-    activeSecondary = [];
-    renderBranches();
-    document.querySelector('#rootHypothesis').hidden = true;
-    document.querySelector('#snapshotIdentity').textContent = 'short-window';
-    return;
-  }
+  const record = timelineRecords[index];
   const request = ++lossDiagnosisRequest;
-  // A selected loss supersedes a pending generic replay response.
+  const receipt = document.querySelector('#aiForensics');
+  if (receipt) {
+    receipt.hidden = false;
+    receipt.innerHTML = `<article class="decision-explainer"><p class="eyebrow">SELECTED POINT AT ${escapeHtml(formatTimestamp(record?.timestamp))}</p><h3>Loading algorithm receipt…</h3><p class="decision-why">Finding the latest retained action and every input available before it.</p></article>`;
+  }
+  // A selected point supersedes a pending generic replay response.
   replayRequest += 1;
-  status.textContent = 'Diagnosing selected loss…';
+  status.textContent = 'Inspecting selected point…';
   try {
     const asOf = timelineRecords[index].timestamp;
-    const response = await fetch('/api/investigation/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ records, as_of: asOf, source: 'selected-loss-ui' }) });
+    const response = await fetch('/api/investigation/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ records, as_of: asOf, source: 'selected-point-ui' }) });
     const replay = await response.json();
-    if (!response.ok) throw new Error(replay.error || 'Could not diagnose this loss.');
-    if (!replay.evidence_ready) throw new Error(replay.reason || 'Selected-loss evidence is not ready.');
+    if (!response.ok) throw new Error(replay.error || 'Could not inspect this point.');
+    if (!replay.evidence_ready) throw new Error(replay.reason || 'Selected-point evidence is not ready.');
     if (request !== lossDiagnosisRequest) return;
-    renderSnapshotIdentity(replay.snapshot_id, replay.graph?.evidence_semantics);
-    renderExplanation(replay.analysis, `Selected loss at ${formatTimestamp(asOf)}`, true);
+    renderSnapshotIdentity(replay.snapshot_id, replay.graph?.evidence_semantics || 'Decision receipt uses only records retained by this point.');
     renderLedger(replay.ledger);
-    renderAiForensics(replay.ai_forensics);
-    // Analysis and graph carry one immutable point-in-time identity.
-    renderCausalFlow(document.querySelector('#investigationGraph'), replay.graph.nodes, replay.graph.edges);
-    status.textContent = `${replay.records} prior-and-current marks analysed · snapshot ${replay.snapshot_id}`;
+    renderAiForensics(replay.ai_forensics, replay.ledger, asOf, replay.detected_decision);
+    renderStrategyProfile(replay.strategy_profile);
+    if (replay.analysis_ready) {
+      renderExplanation(replay.analysis, `Selected point at ${formatTimestamp(asOf)}`, true);
+      renderCausalFlow(document.querySelector('#investigationGraph'), replay.graph.nodes, replay.graph.edges);
+      status.textContent = `${replay.records} prior-and-current marks analysed · snapshot ${replay.snapshot_id}`;
+    } else {
+      document.querySelector('#diagnosisTitle').textContent = 'What did the trading algorithm do here?';
+      document.querySelector('#diagnosisSubtitle').textContent = `Selected point at ${formatTimestamp(asOf)}. Its action receipt is available; there are not enough points for statistical pattern analysis.`;
+      status.textContent = `${replay.records} retained observations · decision receipt shown`;
+    }
   } catch (error) {
     if (request === lossDiagnosisRequest) {
-      status.textContent = 'Selected-loss diagnosis unavailable';
+      status.textContent = 'Selected-point inspection unavailable';
       notify(error.message);
     }
   }
@@ -148,7 +180,8 @@ async function diagnoseSelectedLoss(index) {
 function renderIncidentTimeline(records) {
   // Click-local diagnosis must use chronological evidence; upload order can be arbitrary.
   timelineSourceRecords = [...(records || [])].sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')));
-  activeTimelineSymbol = '__all__';
+  const firstSymbol = timelineSourceRecords.find((record) => String(record.symbol || '').trim())?.symbol;
+  activeTimelineSymbol = firstSymbol ? String(firstSymbol).toUpperCase() : '__all__';
   renderTimelineSeries();
 }
 
@@ -160,47 +193,61 @@ function renderTimelineSeries() {
   const chart = document.querySelector('#timelineChart');
   const symbolPicker = document.querySelector('#timelineSymbols');
   const symbols = [...new Set(timelineSourceRecords.map((record) => String(record.symbol || '').toUpperCase()).filter(Boolean))];
-  if (timelineRecords.length < 2 || !timelineRecords.some((record) => numericValue(record, 'pnl') !== null)) {
-    panel.hidden = true;
-    return;
-  }
+  timelinePositionInfo = detectPositionField(timelineRecords);
+  timelinePositionValues = positionSeries(timelineRecords, timelinePositionInfo);
+  if (timelineRecords.length < 2) { panel.hidden = true; return; }
   symbolPicker.hidden = !symbols.length;
   symbolPicker.innerHTML = symbols.length
-    ? [`<button class="timeline-symbol ${activeTimelineSymbol === '__all__' ? 'active' : ''}" data-symbol="__all__">All stocks</button>`, ...symbols.map((symbol) => `<button class="timeline-symbol ${activeTimelineSymbol === symbol ? 'active' : ''}" data-symbol="${escapeHtml(symbol)}">${escapeHtml(symbol)}</button>`)].join('')
+    ? symbols.map((symbol) => `<button class="timeline-symbol ${activeTimelineSymbol === symbol ? 'active' : ''}" data-symbol="${escapeHtml(symbol)}">${escapeHtml(symbol)}</button>`).join('')
     : '';
   symbolPicker.querySelectorAll('[data-symbol]').forEach((button) => button.addEventListener('click', () => {
     activeTimelineSymbol = button.dataset.symbol;
+    selectedTimelineIndex = null;
     renderTimelineSeries();
   }));
-  const equityValues = timelineRecords.map((record, index) => {
-    // `equity` in a combined file is often strategy-level. A ticker view must
-    // rebuild its own cumulative P&L instead of accidentally plotting that
-    // aggregate field for every stock.
-    if (activeTimelineSymbol === '__all__') {
-      const equity = numericValue(record, 'equity');
-      if (equity !== null) return equity;
-    }
-    return timelineRecords.slice(0, index + 1).reduce((total, row) => total + (numericValue(row, 'pnl') || 0), 0);
-  });
-  const min = Math.min(...equityValues);
-  const max = Math.max(...equityValues);
-  const range = max - min || 1;
+  if (!timelinePositionInfo || !timelinePositionValues.some((value) => value !== null)) {
+    chart.innerHTML = `<p class="timeline-empty"><b>Position history was not recorded.</b><span>Add <code>position_quantity</code>, <code>actual_position</code>, <code>target_quantity</code>, <code>target_position</code>, or <code>target_weight</code>. OMI will detect the field automatically.</span></p>`;
+    panel.hidden = false;
+    document.querySelector('#timelineStatus').textContent = `${activeTimelineSymbol === '__all__' ? 'Portfolio' : activeTimelineSymbol} · position unavailable`;
+    document.querySelector('#timelineDetail').innerHTML = '';
+    return;
+  }
   const width = 960, height = 260, padX = 38, padY = 26;
   const xFor = (index) => padX + (index / Math.max(1, timelineRecords.length - 1)) * (width - padX * 2);
-  const yFor = (value) => height - padY - ((value - min) / range) * (height - padY * 2);
-  const line = equityValues.map((value, index) => `${index ? 'L' : 'M'}${xFor(index).toFixed(1)},${yFor(value).toFixed(1)}`).join(' ');
-  const lossIndexes = materialLossIndexes(timelineRecords);
-  const markers = lossIndexes.map((index) => `<circle class="loss-marker" data-loss-index="${index}" cx="${xFor(index).toFixed(1)}" cy="${yFor(equityValues[index]).toFixed(1)}" r="6" tabindex="0" role="button" aria-label="Inspect loss at ${escapeHtml(formatTimestamp(timelineRecords[index].timestamp))}" />`).join('');
-  chart.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Equity or cumulative P and L through the incident"><line class="timeline-zero" x1="${padX}" x2="${width - padX}" y1="${yFor(0).toFixed(1)}" y2="${yFor(0).toFixed(1)}" /><path class="timeline-line" d="${line}" />${markers}<text x="${padX}" y="${height - 5}">${escapeHtml(formatTimestamp(timelineRecords[0].timestamp))}</text><text text-anchor="end" x="${width - padX}" y="${height - 5}">${escapeHtml(formatTimestamp(timelineRecords[timelineRecords.length - 1].timestamp))}</text></svg>`;
+  const knownPositions = timelinePositionValues.filter((value) => value !== null);
+  let minimum = Math.min(0, ...knownPositions), maximum = Math.max(0, ...knownPositions);
+  const padding = Math.max((maximum - minimum) * 0.12, Math.abs(maximum || minimum) * 0.08, 1);
+  minimum -= padding;
+  maximum += padding;
+  const yFor = (value) => height - padY - ((value - minimum) / (maximum - minimum)) * (height - padY * 2);
+  let drawing = false;
+  const line = timelinePositionValues.map((value, index) => {
+    if (value === null) { drawing = false; return ''; }
+    const command = drawing ? 'L' : 'M';
+    drawing = true;
+    return `${command}${xFor(index).toFixed(1)},${yFor(value).toFixed(1)}`;
+  }).join(' ');
+  const decisionMarkers = timelineRecords.map((record, index) => {
+    const action = String(record.action || '').toUpperCase();
+    if (!['BUY', 'SELL', 'HOLD'].includes(action) || timelinePositionValues[index] === null) return '';
+    return `<circle class="decision-marker action-${action.toLowerCase()} ${selectedTimelineIndex === index ? 'selected' : ''}" data-timeline-index="${index}" cx="${xFor(index).toFixed(1)}" cy="${yFor(timelinePositionValues[index]).toFixed(1)}" r="5" aria-label="${action} at ${escapeHtml(formatTimestamp(record.timestamp))}" />`;
+  }).join('');
+  const mid = (minimum + maximum) / 2;
+  const axisValue = (value) => timelinePositionInfo.unit === 'weight' ? `${(value * 100).toFixed(1)}%` : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const initialIndex = selectedTimelineIndex !== null && timelineRecords[selectedTimelineIndex]
+    ? selectedTimelineIndex : timelineRecords.length - 1;
+  const selectedLine = `<line class="timeline-selection" x1="${xFor(initialIndex)}" x2="${xFor(initialIndex)}" y1="${padY}" y2="${height - padY}" />`;
+  chart.innerHTML = `<div class="timeline-legend"><b>${escapeHtml(timelinePositionInfo.label)}</b><span class="action-buy">BUY</span><span class="action-sell">SELL</span><span class="action-hold">HOLD</span><small>Dots are recorded actions. Click anywhere to inspect that point.</small></div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(timelinePositionInfo.label)} over time"><line class="action-guide" x1="${padX}" x2="${width - padX}" y1="${yFor(0).toFixed(1)}" y2="${yFor(0).toFixed(1)}" /><text class="position-axis" x="${padX + 4}" y="${(yFor(maximum) + 11).toFixed(1)}">${escapeHtml(axisValue(maximum))}</text><text class="position-axis" x="${padX + 4}" y="${(yFor(mid) - 5).toFixed(1)}">${escapeHtml(axisValue(mid))}</text><text class="position-axis" x="${padX + 4}" y="${(yFor(minimum) - 5).toFixed(1)}">${escapeHtml(axisValue(minimum))}</text><path class="timeline-line position-line" d="${line}" />${selectedLine}${decisionMarkers}<rect class="timeline-hit-area" x="${padX}" y="0" width="${width - padX * 2}" height="${height - padY}" /><text x="${padX}" y="${height - 5}">${escapeHtml(formatTimestamp(timelineRecords[0].timestamp))}</text><text text-anchor="end" x="${width - padX}" y="${height - 5}">${escapeHtml(formatTimestamp(timelineRecords[timelineRecords.length - 1].timestamp))}</text></svg>`;
   panel.hidden = false;
   const scope = activeTimelineSymbol === '__all__' ? 'All stocks' : activeTimelineSymbol;
-  document.querySelector('#timelineStatus').textContent = `${scope} · ${lossIndexes.length} material loss${lossIndexes.length === 1 ? '' : 'es'} marked`;
-  chart.querySelectorAll('[data-loss-index]').forEach((marker) => {
-    const select = () => renderTimelineDetail(Number(marker.dataset.lossIndex));
-    marker.addEventListener('click', select);
-    marker.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } });
+  document.querySelector('#timelineStatus').textContent = `${scope} · ${timelinePositionInfo.kind === 'actual' ? 'actual position' : 'target position'} detected from ${timelinePositionInfo.field}`;
+  chart.querySelector('svg').addEventListener('click', (event) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const chartX = ((event.clientX - bounds.left) / bounds.width) * width;
+    const ratio = Math.min(1, Math.max(0, (chartX - padX) / (width - padX * 2)));
+    renderTimelineDetail(Math.round(ratio * (timelineRecords.length - 1)));
   });
-  renderTimelineDetail(lossIndexes[0] ?? timelineRecords.length - 1);
+  renderTimelineDetail(initialIndex);
 }
 
 function escapeHtml(value) {
@@ -397,7 +444,30 @@ function renderLedger(ledger) {
   const path = document.querySelector('#ledgerPath');
   const receipt = document.querySelector('#ledgerReceipt');
   if (!path || !ledger?.steps) return;
-  path.innerHTML = ledger.steps.map((step, index) => `<button class="ledger-step status-${escapeHtml(step.status)}" data-ledger-index="${index}"><span>${escapeHtml(step.status)}</span><strong>${escapeHtml(step.kind)}</strong><small>${escapeHtml(step.event_id || step.detail)}</small></button>`).join('<i class="ledger-arrow">→</i>');
+  const stepsByKind = Object.fromEntries(ledger.steps.map((step) => [step.kind, step]));
+  const action = String(stepsByKind.decision?.action || '').toUpperCase();
+  const isSell = action === 'SELL';
+  const weightText = (value) => {
+    const weight = Number(value);
+    return Number.isFinite(weight) ? `${Math.abs(weight * 100).toFixed(1)}%` : 'size retained';
+  };
+  const amountText = (value) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? formatMoney(amount) : 'P&L retained';
+  };
+  const cardText = (step) => {
+    if (step.kind === 'observation') return { title: 'Inputs captured', detail: 'Decision-time data' };
+    if (step.kind === 'decision') return { title: `${String(step.action || 'Decision').toUpperCase()}${step.symbol ? ` ${step.symbol}` : ''}`, detail: 'Model action' };
+    if (step.kind === 'target') return { title: `${isSell ? 'Short' : 'Long'} target`, detail: weightText(step.target_weight) };
+    if (step.kind === 'fill') return { title: 'Order filled', detail: step.quantity ? `${step.quantity} shares` : 'Execution retained' };
+    if (step.kind === 'position') return { title: `${isSell ? 'Short' : 'Long'} position`, detail: step.quantity ? `${step.quantity} shares held` : 'Position retained' };
+    if (step.kind === 'pnl') return { title: 'Outcome', detail: amountText(step.pnl) };
+    return { title: step.kind, detail: 'Evidence retained' };
+  };
+  path.innerHTML = ledger.steps.map((step, index) => {
+    const text = cardText(step);
+    return `<button class="ledger-step status-${escapeHtml(step.status)}" data-ledger-index="${index}"><span>${escapeHtml(step.status)}</span><strong>${escapeHtml(text.title)}</strong><small>${escapeHtml(text.detail)}</small></button>`;
+  }).join('<i class="ledger-arrow">→</i>');
   path.querySelectorAll('[data-ledger-index]').forEach((button) => button.addEventListener('click', () => {
     const step = ledger.steps[Number(button.dataset.ledgerIndex)];
     receipt.hidden = false;
@@ -406,12 +476,85 @@ function renderLedger(ledger) {
   }));
 }
 
-function renderAiForensics(receipts) {
+function renderAiForensics(receipts, ledger = {}, asOf = '', importedDecision = null) {
   const panel = document.querySelector('#aiForensics');
   if (!panel) return;
-  if (!receipts?.length) { panel.hidden = true; return; }
+  if (!receipts?.length && !importedDecision) {
+    panel.hidden = false;
+    panel.innerHTML = `<article class="decision-explainer status-missing"><p class="eyebrow">SELECTED POINT AT ${escapeHtml(formatTimestamp(asOf))}</p><h3>Action not retained</h3><p class="decision-why">A position was recorded, but no prior BUY, SELL, or HOLD action and reason were supplied for this point.</p></article>`;
+    return;
+  }
+  // A selected point needs the latest action available by that point. When a
+  // typed receipt exists, enrich it with dynamically detected CSV inputs.
+  const typedItem = receipts?.[receipts.length - 1];
+  const sameDecision = typedItem && importedDecision && (
+    typedItem.decision_id === importedDecision.decision_id || typedItem.timestamp === importedDecision.timestamp
+  );
+  const item = sameDecision ? {
+    ...typedItem,
+    signals: { ...(importedDecision.signals || {}), ...(typedItem.signals || {}) },
+    known: {
+      ...(typedItem.known || {}),
+      inputs: { ...(importedDecision.known?.inputs || {}), ...(typedItem.known?.inputs || {}) },
+      input_details: { ...(importedDecision.known?.input_details || {}), ...(typedItem.known?.input_details || {}) },
+    },
+  } : typedItem || importedDecision;
+  const action = String(item.action || 'Decision unavailable').toUpperCase();
+  const symbol = item.symbol ? ` ${item.symbol}` : '';
+  const reason = item.decision_reason || (item.receipt?.reason_codes || []).join(', ') || 'No human-readable decision reason was retained.';
+  const signalLabels = {
+    alpha_score: 'Alpha score', expected_return: 'Expected return', information_coefficient: 'Information coefficient',
+    rank_ic: 'Rank IC', earnings_revision_pct: 'Earnings revision', revenue_growth_yoy: 'Revenue growth',
+  };
+  const signalValue = (key, value) => ['expected_return', 'earnings_revision_pct', 'revenue_growth_yoy'].includes(key) ? `${value}%` : value;
+  const signals = Object.entries(item.signals || {}).slice(0, 3).map(([key, value]) => `<li><span>${escapeHtml(signalLabels[key] || key)}</span><b>${escapeHtml(signalValue(key, value))}</b></li>`).join('');
+  const known = item.known || {};
+  const inputDetails = known.input_details || {};
+  const knownInputs = Object.entries(known.inputs || {}).map(([key, value]) => {
+    const availableAt = inputDetails[key]?.available_at;
+    return `<li><span>${escapeHtml(signalLabels[key] || key.replaceAll('_', ' '))}</span><span class="decision-known-value"><b>${escapeHtml(signalValue(key, value))}</b>${availableAt ? `<small>available ${escapeHtml(formatTimestamp(availableAt))}</small>` : ''}</span></li>`;
+  }).join('');
+  const sourceGroups = Object.entries(known.sources || {}).reduce((groups, [field, source]) => {
+    const key = `${source.source_id || 'unknown'}|${source.version || ''}|${source.raw_hash || ''}`;
+    if (!groups[key]) groups[key] = { ...source, fields: [] };
+    groups[key].fields.push(field);
+    return groups;
+  }, {});
+  const knownSources = Object.values(sourceGroups).map((source) => `<li><span>${escapeHtml(source.source_id || 'Unknown source')}</span><span class="decision-known-value"><b>${source.fields.length} input${source.fields.length === 1 ? '' : 's'}</b><small>${source.version ? `${escapeHtml(source.version)} · ` : ''}available ${escapeHtml(formatTimestamp(source.available_at))}</small></span></li>`).join('');
+  const knownMeta = [
+    ['Model', known.model_version], ['Feature snapshot', known.feature_snapshot_id], ['Available', known.available_at ? formatTimestamp(known.available_at) : null],
+  ].filter(([, value]) => value).map(([label, value]) => `<li><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></li>`).join('');
+  const target = Number(item.target_weight);
+  const targetText = Number.isFinite(target) ? `${(target * 100).toFixed(1)}% target weight` : 'Target weight not retained';
+  const intendedText = action === 'HOLD' && Number.isFinite(target) ? `Maintain ${(target * 100).toFixed(1)}% target weight` : targetText;
+  const evidence = item.contradictions?.length
+    ? item.contradictions.join(' · ')
+    : item.missing?.length
+      ? `Missing provenance: ${item.missing.join(', ')}.`
+      : item.status === 'detected' ? `${item.source} · verify model/version provenance before treating this as a complete audit record.` : `Decision record is retained and time-valid · ${targetText}.`;
+  const steps = Object.fromEntries((ledger.steps || []).map((step) => [step.kind, step]));
+  const fill = steps.fill || {};
+  const position = steps.position || {};
+  const outcome = steps.pnl || {};
+  const quantity = fill.quantity || position.quantity;
+  const fillText = quantity ? `${quantity} shares${fill.price ? ` at ${fill.price}` : ''}` : 'Execution quantity not retained';
+  const heldAtPoint = selectedTimelineIndex !== null ? timelinePositionValues[selectedTimelineIndex] : null;
+  const positionText = heldAtPoint !== null && heldAtPoint !== undefined
+    ? formatPosition(heldAtPoint)
+    : position.quantity ? `${position.quantity} shares` : 'Position not retained';
+  const pnl = Number(outcome.pnl);
+  const outcomeText = Number.isFinite(pnl) ? `${formatMoney(pnl)} P&L` : 'P&L not retained';
   panel.hidden = false;
-  panel.innerHTML = receipts.map((item) => `<article class="ledger-receipt"><p class="eyebrow">AI DECISION PROVENANCE · ${escapeHtml(item.status)}</p><h3>${escapeHtml(item.decision_id || 'unidentified decision')}</h3><p>${escapeHtml((item.contradictions || item.missing || ['Provenance supported.']).join(' · '))}</p></article>`).join('');
+  const inputCount = Object.keys(known.inputs || {}).length;
+  panel.innerHTML = `<article class="decision-explainer status-${escapeHtml(item.status)}"><p class="eyebrow">ALGORITHM ACTION AT ${escapeHtml(formatTimestamp(item.timestamp))}</p><h3>${escapeHtml(action)}${escapeHtml(symbol)}</h3><p class="decision-why"><b>Why:</b> ${escapeHtml(reason)}</p>${signals ? `<ul class="decision-signals">${signals}</ul>` : ''}<details class="decision-context" open><summary>What the algorithm knew (${inputCount} saved input${inputCount === 1 ? '' : 's'})</summary>${knownMeta ? `<ul class="decision-known">${knownMeta}</ul>` : ''}${knownSources ? `<p class="decision-context-label">CONNECTED SOURCES</p><ul class="decision-known">${knownSources}</ul>` : ''}${knownInputs ? `<p class="decision-context-label">INPUT VALUES</p><ul class="decision-known">${knownInputs}</ul>` : '<p>No detailed inputs were retained for this action.</p>'}</details><div class="decision-outcome"><div><span>DECIDED</span><b>${escapeHtml(intendedText)}</b></div><div><span>TRADED</span><b>${escapeHtml(fillText)}</b></div><div><span>POSITION AFTER</span><b>${escapeHtml(positionText)}</b></div><div><span>RECORDED RESULT</span><b>${escapeHtml(outcomeText)}</b></div></div><small>${escapeHtml(evidence)}</small></article>`;
+}
+
+function renderStrategyProfile(profile) {
+  const target = document.querySelector('#strategyProfile');
+  if (!target || !profile) return;
+  const detected = Object.entries(profile.detected || {}).filter(([, field]) => field).map(([kind, field]) => `${kind}: ${field}`);
+  const inputs = profile.signals || [];
+  target.textContent = `${profile.summary}${detected.length ? ` · ${detected.join(' · ')}` : ''}${inputs.length ? ` · inputs: ${inputs.join(', ')}` : ''}`;
 }
 
 function renderExplanation(result, label, selectedLoss = false) {
@@ -423,11 +566,11 @@ function renderExplanation(result, label, selectedLoss = false) {
   activeRoot = result.root_hypothesis?.label || null;
   const summary = result.summary;
   document.querySelector('#diagnosisTitle').textContent = selectedLoss
-    ? 'What may explain this selected loss?'
-    : `What may explain this ${summary.pnl < 0 ? 'loss' : 'outcome'}?`;
+    ? 'What did the trading algorithm do here?'
+    : 'What did the trading algorithm do—and why?';
   document.querySelector('#diagnosisSubtitle').textContent = selectedLoss
-    ? `${label}. This uses only the 160 observations ending at this loss—never later data.`
-    : `${label}. Start with the candidate below, then follow its evidence path.`;
+    ? `${label}. This receipt uses only records available by the selected point—never later data.`
+    : `${label}. Select a point on the position chart to inspect its action, reason, and prior inputs.`;
   const root = result.root_hypothesis;
   const rootCauses = result.root_causes || [];
   const rootCard = document.querySelector('#rootHypothesis');
@@ -485,12 +628,12 @@ async function renderInvestigationGraph(records, analysis) {
       const replayResponse = await fetch('/api/investigation/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ records, as_of: visibleTime }) });
       const replay = await replayResponse.json();
       if (request !== replayRequest) return;
-      if (!replay.evidence_ready) { graph.innerHTML = `<p class="timeline-missing">${escapeHtml(replay.reason)}</p>`; return; }
+      if (!replay.evidence_ready || !replay.analysis_ready) { graph.innerHTML = `<p class="timeline-missing">${escapeHtml(replay.reason || 'Not enough observations for statistical analysis.')}</p>`; return; }
       renderCausalFlow(graph, replay.graph.nodes, replay.graph.edges);
       // The card flow is the primary evidence surface; rebuild it from this exact snapshot.
       renderExplanation(replay.analysis, `Replay at ${formatTimestamp(visibleTime)}`, true);
       renderLedger(replay.ledger);
-    renderAiForensics(replay.ai_forensics);
+      renderAiForensics(replay.ai_forensics, replay.ledger);
       renderSnapshotIdentity(replay.snapshot_id, replay.graph.evidence_semantics);
       const summary = replay.analysis.summary;
       document.querySelector('#pnlMetric').textContent = formatMoney(summary.pnl);
@@ -502,15 +645,8 @@ async function renderInvestigationGraph(records, analysis) {
     scrubber.value = scrubber.max;
     scrubber.oninput = () => { render(Number(scrubber.value)).catch((error) => console.warn(error)); };
     render(Number(scrubber.value)).catch((error) => console.warn(error));
-    // Keep replay controls beside the card flow; the old standalone graph is retired.
-    let controls = document.querySelector('#replayControls');
-    if (!controls) {
-      controls = document.createElement('div');
-      controls.id = 'replayControls';
-      controls.className = 'section-actions';
-      document.querySelector('.diagnosis .section-head').append(controls);
-    }
-    controls.append(moment, scrubber);
+    // The decision receipt is the primary surface. The graph stays hidden for
+    // now, rather than exposing a second timeline that can overwrite a choice.
     panel.hidden = true;
   } catch (error) { panel.hidden = true; console.warn(error); }
 }
@@ -518,6 +654,7 @@ async function renderInvestigationGraph(records, analysis) {
 function renderDiagnosis(result, records, label) {
   results.hidden = false;
   activeRecords = records;
+  renderStrategyProfile(result.strategy_profile);
   const summary = result.summary;
   document.querySelector('#pnlMetric').textContent = formatMoney(summary.pnl);
   document.querySelector('#pnlDetail').textContent = summary.expected_pnl === null
@@ -530,9 +667,8 @@ function renderDiagnosis(result, records, label) {
   renderExplanation(result, label);
   renderCounterfactualCards();
   refreshIncidentCommand(records, label).catch((error) => console.warn(error));
-  renderInvestigationGraph(records, result);
   document.querySelector('#engineState').textContent = 'Diagnosis complete';
-  document.querySelector('#engineHint').textContent = `${result.records} P&L marks checked · select a marked loss for its local diagnosis`;
+  document.querySelector('#engineHint').textContent = `${result.records} records checked · choose a stock and click any point on its position history`;
   results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -562,6 +698,39 @@ document.querySelector('#loadFlightDemo').addEventListener('click', async () => 
   } catch (error) { document.querySelector('#engineState').textContent = 'Run failed'; notify(error.message); }
 });
 
+document.querySelector('#openRecordedStrategy').addEventListener('click', async () => {
+  try {
+    setRunning('Opening the newest strategy captured by the local OMI recorder…');
+    const strategiesResponse = await fetch('/api/flight-recorder/strategies');
+    const strategies = await strategiesResponse.json();
+    if (!strategiesResponse.ok) throw new Error(strategies.error || 'Could not list recorded strategies.');
+    const latest = strategies.strategies?.[0];
+    if (!latest) throw new Error('No strategy has posted evidence yet. Run an instrumented strategy first.');
+    const response = await fetch(`/api/flight-recorder/evidence?strategy_id=${encodeURIComponent(latest.strategy_id)}`);
+    const recorded = await response.json();
+    if (!response.ok) throw new Error(recorded.error || 'Could not open recorded strategy evidence.');
+    activeRecords = recorded.events;
+    results.hidden = false;
+    const pnl = recorded.events.filter((event) => event.kind === 'pnl').reduce((total, event) => total + (numericValue(event, 'pnl') || 0), 0);
+    document.querySelector('#pnlMetric').textContent = formatMoney(pnl);
+    document.querySelector('#pnlDetail').textContent = `${recorded.events.filter((event) => event.kind === 'pnl').length} recorded P&L marks`;
+    document.querySelector('#recordsMetric').textContent = recorded.events.length.toLocaleString();
+    document.querySelector('#changeMetric').textContent = 'Recorded';
+    document.querySelector('#changeDetail').textContent = recorded.status.latest_event_timestamp ? formatTimestamp(recorded.status.latest_event_timestamp) : '—';
+    renderSnapshotIdentity(recorded.snapshot_id, 'Recorder evidence is append-only and bound to this snapshot.');
+    renderStrategyProfile(recorded.strategy_profile);
+    renderLedger(recorded.ledger);
+    renderAiForensics(recorded.ai_forensics, recorded.ledger, recorded.status.latest_event_timestamp, recorded.detected_decision);
+    renderIncidentTimeline(recorded.events);
+    document.querySelector('#engineState').textContent = 'Recorded strategy ready';
+    document.querySelector('#engineHint').textContent = `${recorded.strategy_id} · ${recorded.events.length} linked evidence events · click its position history to replay any point`;
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (error) {
+    document.querySelector('#engineState').textContent = 'Recorder unavailable';
+    notify(error.message);
+  }
+});
+
 document.querySelector('#loadEvidenceDemo').addEventListener('click', async () => {
   try {
     setRunning('Importing the local AI rationale contradiction bundle…');
@@ -574,9 +743,20 @@ document.querySelector('#loadEvidenceDemo').addEventListener('click', async () =
     document.querySelector('#results').hidden = false;
     document.querySelector('#snapshotIdentity').textContent = 'demo-ai-contradiction';
     renderLedger(result.ledger);
-    renderAiForensics(result.ai_forensics);
+    renderAiForensics(result.ai_forensics, result.ledger);
     document.querySelector('#engineState').textContent = 'Demo ready';
     document.querySelector('#engineHint').textContent = 'Local AI decision evidence imported · lifecycle reconciles · rationale contradiction detected.';
+  } catch (error) { document.querySelector('#engineState').textContent = 'Import failed'; notify(error.message); }
+});
+
+document.querySelector('#loadCompleteLedgerDemo').addEventListener('click', async () => {
+  try {
+    setRunning('Loading the local full-product CSV demo…');
+    const sampleResponse = await fetch('/api/sample/full-product');
+    const sample = await sampleResponse.json();
+    if (!sampleResponse.ok) throw new Error(sample.error || 'Could not load the full-product CSV.');
+    await diagnose(sample.records, 'Built-in full-product CSV demo');
+    document.querySelector('#engineHint').textContent = 'Full local CSV analysed · changing share positions, action reasons, dynamic model inputs, execution, and P&L included · no broker connection used.';
   } catch (error) { document.querySelector('#engineState').textContent = 'Import failed'; notify(error.message); }
 });
 

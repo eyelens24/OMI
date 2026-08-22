@@ -24,6 +24,7 @@ from hardening import adapt_read_only_bundle, reconcile_lifecycle, bounded_count
 from omi_core.ledger import ledger_for_records
 from omi_core.ai_forensics import assess_ai_decision
 from omi_core.imports import validate_event_bundle
+from omi_core.profiling import detected_decision, inspect_strategy
 
 ROOT = Path(__file__).parent
 STORE = InvestigationStore(ROOT / "data" / "quant_doctor.db")
@@ -147,7 +148,7 @@ def synthetic_incident():
 
 
 def load_sample(name):
-    allowed = {"failure": "market_failure.csv", "normal": "market_normal.csv", "fundamental": "fundamental_failure.csv", "mixed": "mixed_incident.csv"}
+    allowed = {"failure": "market_failure.csv", "normal": "market_normal.csv", "fundamental": "fundamental_failure.csv", "mixed": "mixed_incident.csv", "complete-ledger": "complete_evidence_ledger.csv", "full-product": "full_product_demo.csv"}
     if name not in allowed:
         raise ValueError("Unknown sample dataset.")
     with (ROOT / "sample_data" / allowed[name]).open(newline="") as handle:
@@ -214,6 +215,9 @@ def normalise_flight_event(event):
     if not isinstance(data, dict):
         raise ValueError("Flight-recorder event data must be an object.")
     normalised_data = {canonical_field(str(key)): value for key, value in data.items() if canonical_field(str(key)) not in {"timestamp", "symbol"}}
+    for field in ("available_at", "decision_timestamp"):
+        if normalised_data.get(field):
+            normalised_data[field] = parse_timestamp(normalised_data[field], f"Flight-recorder {field}").isoformat()
     event_id = str(event.get("event_id", "")).strip()
     if not event_id:
         fingerprint = json.dumps({"strategy_id": strategy_id, "event_type": event_type, "timestamp": timestamp, "symbol": symbol, "data": normalised_data}, sort_keys=True, default=str)
@@ -237,6 +241,54 @@ def flight_events_to_records(events):
                 records.append(row)
         else:
             snapshot.update(event["data"])
+    return records
+
+
+FLIGHT_TO_LIFECYCLE = {
+    "fundamental_snapshot": "observation",
+    "strategy_decision": "decision",
+    "portfolio_target": "target",
+    "fill": "fill",
+    "position_snapshot": "position",
+    "pnl_mark": "pnl",
+}
+
+
+def flight_events_to_evidence(events):
+    """Restore recorder events to the typed evidence format used by the UI."""
+    evidence = []
+    for event in events:
+        data = dict(event.get("data") or {})
+        kind = data.pop("kind", None) or FLIGHT_TO_LIFECYCLE.get(event.get("event_type"))
+        if kind not in {"observation", "decision", "target", "fill", "position", "pnl"}:
+            continue
+        evidence.append({
+            **data,
+            "kind": kind,
+            "event_id": event.get("event_id"),
+            "timestamp": event.get("timestamp"),
+            "symbol": event.get("symbol"),
+        })
+    return evidence
+
+
+def typed_events_to_outcome_records(events):
+    """Build one no-lookahead analysis row for every typed P&L event."""
+    latest_by_symbol, records = {}, []
+    metadata = {"kind", "event_id", "parent_id", "timestamp", "available_at", "raw_artifact_hash"}
+    for event in sorted(events, key=lambda item: str(item.get("timestamp", ""))):
+        symbol = event.get("symbol") or "__aggregate"
+        snapshot = latest_by_symbol.setdefault(symbol, {})
+        values = {key: value for key, value in event.items() if key not in metadata and value not in (None, "") and not isinstance(value, (dict, list))}
+        if event.get("kind") == "pnl":
+            row = {"timestamp": event.get("timestamp"), **snapshot, **values}
+            if symbol != "__aggregate":
+                row["symbol"] = symbol
+            records.append(row)
+        else:
+            snapshot.update(values)
+            if isinstance(event.get("feature_values"), dict):
+                snapshot.update(event["feature_values"])
     return records
 
 
@@ -375,7 +427,10 @@ def basket_summary(records):
     total_notional = sum(item["notional"] for item in exposure_items)
     for item in exposure_items:
         item["share"] = round(item["notional"] / total_notional, 4) if total_notional else None
-    top_exposures = sorted(exposure_items, key=lambda item: item["notional"], reverse=True)[:5]
+    top_exposures = [
+        {**item, "timestamp": item["timestamp"].isoformat() if isinstance(item.get("timestamp"), datetime) else item.get("timestamp")}
+        for item in sorted(exposure_items, key=lambda item: item["notional"], reverse=True)[:5]
+    ]
     top_losses = sorted((item for item in instruments if item["has_pnl"]), key=lambda item: item["pnl"])[:5]
     concentration = top_exposures[0]["share"] if top_exposures and total_notional else None
     return {
@@ -1357,6 +1412,35 @@ class Handler(SimpleHTTPRequestHandler):
             strategy_id = query.get("strategy_id", [None])[0]
             self.respond({"status": STORE.flight_status(strategy_id)})
             return
+        if parsed_url.path == "/api/flight-recorder/strategies":
+            self.respond({"strategies": STORE.flight_strategies()})
+            return
+        if parsed_url.path == "/api/flight-recorder/evidence":
+            strategy_id = query.get("strategy_id", [None])[0]
+            if not strategy_id:
+                self.respond({"error": "strategy_id is required."}, 400)
+                return
+            stored = STORE.flight_events(strategy_id)
+            evidence = flight_events_to_evidence(stored)
+            if not evidence:
+                self.respond({"error": "No lifecycle evidence was recorded for this strategy."}, 404)
+                return
+            as_of = evidence[-1].get("timestamp")
+            snap = make_snapshot(evidence, as_of, "flight-recorder")
+            ledger = ledger_for_records(evidence)
+            receipts = [assess_ai_decision(row) for row in evidence if row.get("kind") == "decision"]
+            self.respond({
+                "strategy_id": strategy_id,
+                "events": evidence,
+                "outcome_records": typed_events_to_outcome_records(evidence),
+                "snapshot_id": snap["snapshot_id"],
+                "ledger": ledger,
+                "ai_forensics": receipts,
+                "strategy_profile": inspect_strategy(evidence),
+                "detected_decision": detected_decision(evidence),
+                "status": STORE.flight_status(strategy_id),
+            })
+            return
         if self.path == "/healthz":
             # Used by hosting providers to confirm that the Python API is ready.
             self.respond({"status": "ok"})
@@ -1372,6 +1456,12 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/sample/fundamental":
             self.respond({"records": load_sample("fundamental"), "label": "fundamental_failure.csv"})
+            return
+        if self.path == "/api/sample/complete-ledger":
+            self.respond({"records": load_sample("complete-ledger"), "label": "complete_evidence_ledger.csv"})
+            return
+        if self.path == "/api/sample/full-product":
+            self.respond({"records": load_sample("full-product"), "label": "full_product_demo.csv"})
             return
         if self.path == "/api/history":
             self.respond({"investigations": STORE.recent()})
@@ -1401,24 +1491,32 @@ class Handler(SimpleHTTPRequestHandler):
                 self.respond({"attribution": attribute_pnl(payload.get("rows"))})
             elif self.path == "/api/investigation/replay":
                 snapshot = reconstruct_as_of(payload.get("records") or [], payload.get("as_of"))
-                if len(snapshot) < 50:
-                    self.respond({"as_of": payload.get("as_of"), "records": len(snapshot), "evidence_ready": False, "reason": "Need 50 observations before an evidence-based replay can make a diagnosis."})
+                snap = make_snapshot(snapshot, payload.get("as_of"), "replay")
+                ledger = ledger_for_records(snapshot)
+                ai_receipts = [assess_ai_decision(row) for row in snapshot if row.get("kind") == "decision"]
+                profile = inspect_strategy(snapshot)
+                imported_decision = detected_decision(snapshot)
+                analysis_records = snapshot
+                if any(row.get("kind") for row in snapshot) and not all(row.get("pnl") not in (None, "") for row in snapshot):
+                    analysis_records = typed_events_to_outcome_records(snapshot)
+                if len(analysis_records) < 50:
+                    # A decision receipt is useful with a single retained decision.
+                    # Statistical diagnosis remains unavailable until 50 observations.
+                    self.respond({"as_of": payload.get("as_of"), "records": len(snapshot), "evidence_ready": True, "analysis_ready": False, "snapshot_id": snap["snapshot_id"], "ledger": ledger, "ai_forensics": ai_receipts, "strategy_profile": profile, "detected_decision": imported_decision, "reason": "Fewer than 50 observations: showing the retained decision receipt without statistical diagnosis."})
                 else:
-                    analysis = analyse(snapshot)
-                    analysis["explanation_blocks"] = build_evidence_flow(snapshot, analysis)
-                    snap = make_snapshot(snapshot, payload.get("as_of"), "replay")
+                    analysis = analyse(analysis_records)
+                    analysis["explanation_blocks"] = build_evidence_flow(analysis_records, analysis)
                     analysis["snapshot_id"] = snap["snapshot_id"]
-                    graph = build_investigation_graph(snapshot, analysis)
+                    graph = build_investigation_graph(analysis_records, analysis)
                     graph["snapshot_id"] = snap["snapshot_id"]
-                    ledger = ledger_for_records(snapshot)
-                    ai_receipts = [assess_ai_decision(row) for row in snapshot if row.get("kind") == "decision"]
-                    self.respond({"as_of": payload.get("as_of"), "records": len(snapshot), "evidence_ready": True, "snapshot_id": snap["snapshot_id"], "analysis": analysis, "graph": graph, "ledger": ledger, "ai_forensics": ai_receipts})
+                    self.respond({"as_of": payload.get("as_of"), "records": len(snapshot), "evidence_ready": True, "analysis_ready": True, "snapshot_id": snap["snapshot_id"], "analysis": analysis, "graph": graph, "ledger": ledger, "ai_forensics": ai_receipts, "strategy_profile": profile, "detected_decision": imported_decision})
             elif self.path == "/api/investigation/graph":
                 records = payload.get("records")
                 self.respond({"graph": build_investigation_graph(records, payload.get("analysis") or {})})
             elif self.path == "/api/analyse":
                 analysis = analyse(payload["records"])
                 analysis["explanation_blocks"] = build_evidence_flow(payload["records"], analysis)
+                analysis["strategy_profile"] = inspect_strategy(payload["records"])
                 investigation_id = STORE.save(payload.get("label", "Uploaded data diagnosis"), {}, analysis["summary"])
                 analysis["investigation_id"] = investigation_id
                 self.respond(analysis)

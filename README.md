@@ -6,7 +6,16 @@ It is not a trading bot, broker terminal, order-management system, stock picker,
 
 Its core question is deliberately narrow:
 
-> **At the time of a loss, what did the system know, what did it decide, what did it intend to own, what actually happened, and which evidence proves or breaks each link to P&L?**
+> **At any point in a position's history, what did the system know, what did it decide, what did it intend to own, what actually happened, and which evidence proves or breaks each link to P&L?**
+
+In the product, that becomes a single **Decision Receipt** for a selected trade:
+
+```text
+position before → BUY, SELL, or HOLD → why → inputs available beforehand
+→ intended size → actual execution → position after → P&L → trust status
+```
+
+The receipt is deliberately concise. OMI does not generate an after-the-fact story; it displays the rationale and signals retained when the decision was made, then labels whether the supporting chain is complete, missing, contradictory, or time-invalid.
 
 The product principle is:
 
@@ -47,6 +56,244 @@ The app binds to `127.0.0.1` and has no live-trading controls.
 
 ---
 
+## Connect an unfamiliar trading algorithm
+
+OMI now includes a framework-neutral Python flight recorder in [`omi_core/recorder.py`](omi_core/recorder.py). Its purpose is:
+
+> Connect an unfamiliar trading algorithm, capture its decision state, and later reproduce why a position changed through one common evidence contract—even when the strategy, model, input names, or broker field names differ.
+
+The recorder observes the algorithm. It never places an order and never needs broker credentials.
+
+### Fastest complete example
+
+1. Start OMI.
+2. In a second terminal, run:
+
+   ```powershell
+   C:\conda2\python.exe examples\instrumented_strategy.py --server http://127.0.0.1:8000
+   ```
+
+   On macOS/Linux:
+
+   ```bash
+   python3 examples/instrumented_strategy.py --server http://127.0.0.1:8000
+   ```
+
+3. In the dashboard, click **Open latest recorded strategy**.
+4. Choose the stock and click any point on its position line.
+5. Expand **What the algorithm knew**.
+
+The example runs an ordinary RSI/regime strategy for 60 decisions. It records 360 linked events and deliberately includes an unused vendor field. OMI excludes that unused field because the instrumented strategy never reads it.
+
+### Minimal integration
+
+An existing strategy whose first argument is a mapping can be wrapped without changing its return value:
+
+```python
+from omi_core import HttpSink, StrategyRecorder
+
+recorder = StrategyRecorder(
+    "production_alpha_v7",
+    strategy_version="git:4a91df2",
+    model_version="xgboost:2026-08-22",
+    parameters={"buy_threshold": 0.65},
+    sink=HttpSink("http://127.0.0.1:8000"),
+)
+
+@recorder.instrument()
+def decide(features):
+    score = features["proprietary_alpha"]
+    risk = features["risk_regime"]
+    if score > 0.65 and risk != "blocked":
+        return {
+            "action": "BUY",
+            "target_quantity": 500,
+            "decision_reason": "Alpha passed the threshold and risk allowed entry.",
+        }
+    return {
+        "action": "HOLD",
+        "target_quantity": features["current_position"],
+        "decision_reason": "No permitted position change.",
+    }
+
+result = decide({
+    "symbol": "AAPL",
+    "timestamp": "2026-08-22T09:30:00Z",
+    "available_at": "2026-08-22T09:29:58Z",
+    "proprietary_alpha": 0.81,
+    "risk_regime": "normal",
+    "current_position": 0,
+})
+```
+
+The result returned to the trading program is unchanged. The wrapper additionally records:
+
+- the feature keys the function actually accessed;
+- their point-in-time values and `available_at` timestamp;
+- a deterministic feature-snapshot hash;
+- strategy parameters and their hash;
+- explicit model version, or a derived callable fingerprint when none is supplied;
+- source/bytecode fingerprint of the wrapped decision function;
+- action, target, reason, confidence, score, reason codes, and any extra JSON result fields supplied by the strategy.
+
+The decision output must contain `action` (`BUY`, `SELL`, or `HOLD`) and should contain a target plus a human-readable `decision_reason`. Arbitrary indicator names are supported; there is no fixed RSI, momentum, fundamental, or model-feature schema.
+
+### Attach execution, position, and P&L
+
+After the strategy acts, append facts returned by the broker, OMS, or accounting system:
+
+```python
+receipt = recorder.latest_receipt("AAPL")
+
+receipt.record_fill(
+    quantity=500,
+    price=229.14,
+    timestamp="2026-08-22T09:30:01Z",
+    broker_order_id="order-812",
+)
+receipt.record_position(
+    quantity=500,
+    timestamp="2026-08-22T09:30:02Z",
+    account="paper-1",
+)
+receipt.record_pnl(
+    pnl=-125.40,
+    timestamp="2026-08-22T16:00:00Z",
+    currency="USD",
+)
+```
+
+OMI refuses invalid ordering: a fill requires a recorded target, a position requires its fill, and P&L requires the resulting position. It also rejects an input whose `available_at` is later than the decision timestamp.
+
+### Adapt different broker field names
+
+The execution adapter maps an external payload without putting vendor-specific names into the core:
+
+```python
+from omi_core import ExecutionAdapter
+
+broker = ExecutionAdapter(
+    timestamp="eventTime",
+    fill_quantity="filledQty",
+    fill_price="avgPx",
+    position_quantity="netPosition",
+    pnl="netPL",
+)
+
+broker.record_fill(receipt, {
+    "eventTime": "2026-08-22T09:30:01Z",
+    "filledQty": 500,
+    "avgPx": 229.14,
+    "brokerOrderId": "order-812",
+})
+```
+
+Use `input_selector=` when the strategy's input mapping is not its first argument, and `result_adapter=` when its output is not already a mapping containing OMI's action/target fields. These two boundaries are where framework- or model-specific adapters belong.
+
+### Storage and inspection
+
+Available sinks are:
+
+- `MemorySink` for tests or embedding;
+- `JsonlSink(path)` for an append-only local evidence file;
+- `HttpSink(url)` for the local OMI collector;
+- `CompositeSink(...)` for more than one destination.
+
+The collector ignores duplicate event IDs and never overwrites an earlier event. Recorded strategies can be queried through:
+
+```text
+GET /api/flight-recorder/strategies
+GET /api/flight-recorder/evidence?strategy_id=production_alpha_v7
+```
+
+### Connect arbitrary APIs and additional data
+
+[`omi_core/connectors.py`](omi_core/connectors.py) defines the common read-only boundary for external information:
+
+```text
+HTTP API / vendor SDK / CSV / JSON / JSONL
+→ source envelope
+→ field mapping
+→ availability check
+→ merged decision snapshot
+→ StrategyRecorder
+→ execution adapter
+→ OMI dashboard
+```
+
+Built-in connector primitives:
+
+| Component | Purpose |
+| --- | --- |
+| `HttpJsonConnector` | Calls a JSON API using GET only. Authentication headers are used for the request but never placed in evidence. |
+| `CallableConnector` | Wraps any existing Python SDK, database client, feature-store client, model registry, or custom loader function. |
+| `FileConnector` | Selects the newest time-valid row from CSV, JSON, JSONL, or NDJSON. |
+| `FieldMapper` | Maps nested or vendor-specific fields into the names expected by the strategy and applies optional type/unit transformations. |
+| `ConnectorHub` | Reads multiple sources, rejects future evidence, detects field collisions, and creates one merged `ConnectedSnapshot`. |
+| `ExecutionAdapter` | Maps broker/OMS/accounting responses into fill, position, and P&L records. |
+
+Example using unrelated market and risk APIs:
+
+```python
+from omi_core import CallableConnector, ConnectorHub, FieldMapper
+
+market = CallableConnector(
+    "market-vendor",
+    fetch=market_client.latest,
+    version="market-api-v8",
+    observed_at_field="observed",
+    available_at_field="published",
+    mapper=FieldMapper({
+        "rsi_14": "indicators.relativeStrength14",
+        "sentiment": "indicators.newsSentiment",
+    }),
+)
+
+risk = CallableConnector(
+    "risk-engine",
+    fetch=risk_client.snapshot,
+    version="risk-policy-v3",
+    mapper=FieldMapper({
+        "risk_regime": "state.regimeName",
+        "capacity_remaining": "state.capacityRemaining",
+    }),
+)
+
+snapshot = (
+    ConnectorHub()
+    .add(market)
+    .add(risk)
+    .snapshot(decision_time="2026-08-22T09:30:00Z", symbol="AAPL")
+)
+
+receipt = recorder.capture_connected_decision(decide, snapshot)
+```
+
+Every field in the merged snapshot retains:
+
+- source identifier and connector type;
+- observed, available, and retrieval timestamps;
+- vendor/schema version;
+- hash of the raw source response.
+
+Only sources available on or before the decision are accepted. Duplicate output names fail loudly unless the connector is assigned a prefix or the fields are mapped differently.
+
+The complete multi-source example is [`examples/connected_sources_strategy.py`](examples/connected_sources_strategy.py):
+
+```bash
+python3 examples/connected_sources_strategy.py --server http://127.0.0.1:8000
+```
+
+To support another API, subclass `EvidenceConnector` and implement its single `read(...) -> SourceEnvelope` method, or wrap the provider's existing client with `CallableConnector`. No change to the ledger, dashboard, or recorder is required.
+
+### What “automatic” does and does not mean
+
+For a mapping-based Python function, OMI can automatically observe which keys are read and capture its returned decision. The connector layer can normalize any source that exposes a readable payload, but each new provider still needs credentials, a fetch function or URL, timestamp semantics, and a field map. OMI cannot inspect arbitrary native code, remote model servers, a pandas pipeline, or a broker account without an adapter at that boundary. It also cannot prove that a provider timestamp is truthful or that a human-written reason is economically correct merely because it was recorded.
+
+Production-grade reconstruction still requires the real system to provide its timestamps, immutable model artifacts, data versions, order/fill events, positions, corporate actions, fees, FX treatment, and accounting marks. The recorder makes these facts comparable and replayable; it does not manufacture facts that the connected systems never expose.
+
+---
+
 ## Start OMI on Windows
 
 ```powershell
@@ -68,7 +315,104 @@ C:\conda2\python.exe
 
 ---
 
-## Demo workflow
+## Presentation-ready demo
+
+For the clearest product walkthrough, begin with **Run full product CSV demo**. It loads [`sample_data/full_product_demo.csv`](sample_data/full_product_demo.csv), a synthetic trading history with changing share positions, BUY/SELL/HOLD actions, saved reasons, model inputs, execution records, and P&L. OMI detects those fields from the file and adapts the position chart and action receipt automatically.
+
+### What to say and show
+
+1. **Set the boundary.**
+
+   > “OMI is a local, read-only forensic tool. It does not trade, change accounts, or invent a reason for a loss.”
+
+2. Click **Run full product CSV demo**. Choose a stock and show its position history. The line is how many shares were held; the coloured dots are the recorded BUY, SELL, and HOLD actions. Click anywhere on the line.
+
+   > “This is the algorithm’s position over time—not an abstract buy/sell score. Every point can be inspected.”
+
+3. In the action receipt, show the action, saved explanation, traded quantity, resulting position, and recorded P&L. Expand **What the algorithm knew** to show every retained indicator and when it was available.
+
+   > “OMI reconstructs the latest action using only data available by the selected time. If the strategy adds or removes indicators, this list changes automatically.”
+
+4. Expand the verification details and show the evidence path:
+
+   ```text
+   observation → decision → target → fill → position → P&L
+   ```
+
+   > “Each card is a retained record, and each arrow is an explicit parent-child link—not an AI-generated story.”
+
+5. Click each ledger card. Explain that its receipt identifies the event and why the step is supported. In the supplied example:
+
+   | Step | Presentation evidence |
+   | --- | --- |
+   | Observation | A point-in-time earnings/valuation snapshot was retained at 09:25. |
+   | Decision | The named model selected a `BUY` at 09:30 using that snapshot. |
+   | Target | Portfolio construction requested 500 shares / 5.0% at 09:31. |
+   | Fill | The order filled 500 shares at 09:32. |
+   | Position | The custody position reconciled to that fill at 09:33. |
+   | P&L | The 16:00 P&L mark belongs to that reconciled position. |
+
+6. Point out the decision provenance receipt. It identifies the strategy version, model version, feature snapshot, action, and structured reasons.
+
+   > “This proves that the record chain is complete and time-valid. It does *not* prove that the model economically caused a loss. It proves exactly what OMI is permitted to say from the evidence.”
+
+7. Click **Import AI contradiction demo**. The chain remains complete, but the AI receipt is `CONTRADICTED`: the recorded rationale claims a positive earnings revision while the retained feature value is negative.
+
+   > “OMI separates execution lineage from explanation quality. A complete trade chain does not make an invalid rationale acceptable.”
+
+8. Click **Run built-in test CSV** and show how OMI states that position/action history is unavailable when the CSV did not retain it.
+
+   > “This CSV is enough to identify and replay a P&L pattern, but it does not retain the actual order and decision records. OMI shows the gap instead of filling it with a plausible narrative.”
+
+### Suggested 90-second presentation script
+
+> “OMI is a flight recorder for trading algorithms. The position line shows how many shares the algorithm held over time. I can click any point and see the latest action, why it acted, what actually traded, and every saved market or model input available beforehand. The dashboard is not tied to a fixed indicator list: it discovers the fields supplied by each strategy. Underneath, the evidence chain verifies that the observation, decision, target, fill, position, and P&L records really connect. If the file did not retain an action or input, OMI says so instead of inventing an explanation.”
+
+### Interpreting the result
+
+| You see | It means | What to do next |
+| --- | --- | --- |
+| All `SUPPORTED` | The supplied records form a linked, time-valid lifecycle. | Investigate market, model, or policy quality without questioning record lineage. |
+| `MISSING` | The relevant record or parent link was not supplied. | Export/retain the named decision, target, order/fill, or position record. |
+| `CONTRADICTED` | A supplied parent ID or AI rationale conflicts with other retained evidence. | Resolve the source-system discrepancy; do not make a causal claim yet. |
+| `TIME-INVALID` | Evidence was available only after the event it claims to support. | Exclude it from the decision-time explanation; retrieve the point-in-time version. |
+| `INFERRED` | OMI has a bounded pattern-based hypothesis, not a proven link. | Treat it as an investigation lead and collect confirming evidence. |
+
+### Complete-example format
+
+The built-in full-workflow CSV is [`sample_data/full_product_demo.csv`](sample_data/full_product_demo.csv); the app loads it through **Run full product CSV demo**. It contains both analytic features and lifecycle IDs, so it drives the entire product rather than only the ledger. [`sample_data/complete_evidence_ledger.csv`](sample_data/complete_evidence_ledger.csv) remains the small six-row structural example. The equivalent copyable JSON Evidence Bundle is [`examples/complete-evidence-ledger.json`](examples/complete-evidence-ledger.json), which can be submitted to `POST /api/evidence-bundle/validate`.
+
+Every event needs these base fields:
+
+```json
+{
+  "kind": "decision",
+  "event_id": "decision-20250816-0930",
+  "parent_id": "obs-earnings-20250816-0925",
+  "timestamp": "2025-08-16T09:30:00Z"
+}
+```
+
+`kind` must be one of `observation`, `decision`, `target`, `fill`, `position`, or `pnl`. `event_id` and `timestamp` are mandatory. Except for `observation`, each event should use `parent_id` to reference the event that immediately precedes it in the lifecycle. Add `available_at` to evidence whose availability matters; it must not be later than the decision it supports.
+
+For an algorithm decision, retain at least `model_version`, `feature_snapshot_id`, `decision_timestamp`, `available_at`, `action`, and `decision_reason`. Record actual holdings as `position_quantity` (preferred), `actual_position`, or `position`; OMI falls back to `target_quantity`, `target_position`, or `target_weight` when actual holdings are unavailable.
+
+Indicator names are not fixed. Any additional non-lifecycle columns on the observation/decision records—such as `rsi_14`, `macro_regime`, `sentiment_score`, or proprietary factors—are discovered and shown under **What the algorithm knew**. OMI walks backward from the decision and uses the newest value whose `available_at` (or `timestamp`) is not later than the decision time. Post-decision execution and outcome fields are excluded.
+
+### CSV versus an Evidence Bundle
+
+The normal CSV workflow accepts P&L and market/strategy measurements. It can identify loss patterns and replay them without future data, but it cannot turn columns such as `alpha_score` or `target_actual_weight_gap_bps` into proof of a specific decision, order, or position.
+
+Use an Evidence Bundle when you need the full ledger. A normal CSV will therefore commonly show:
+
+```text
+SUPPORTED observation → MISSING decision → MISSING target
+→ MISSING fill → MISSING position → SUPPORTED P&L
+```
+
+That is an honest import result, not dropped data or a product failure.
+
+### Demo workflow for the analysis/replay experience
 
 1. Open OMI and click **Run built-in test CSV**.
 2. Inspect the incident timeline and select a material loss.
@@ -81,7 +425,7 @@ C:\conda2\python.exe
 6. Select a different loss, then reselect the first loss. The snapshot and explanation must return to the same values.
 7. Export a reproducibility receipt when available.
 
-The bundled demo is synthetic. It demonstrates deterministic mechanics and known-truth regression scenarios; it does not establish real broker, vendor, or market truth.
+All bundled demos are synthetic. They demonstrate deterministic mechanics and known-truth regression scenarios; they do not establish real broker, vendor, or market truth.
 
 ---
 
@@ -329,15 +673,26 @@ Implemented and tested:
   ```text
   observation → decision → target → fill → position → P&L
   ```
+- framework-neutral `StrategyRecorder` with accessed-input capture;
+- callable, parameter, feature-snapshot, and raw-event fingerprints;
+- automatic look-ahead rejection at the recorder boundary;
+- linked fill, position, and P&L recording with ordering checks;
+- configurable execution-field adapter for broker/OMS payloads;
+- common connector contract for HTTP JSON, Python SDKs, CSV, JSON, JSONL, and custom sources;
+- per-field source/version/timestamp/raw-response provenance;
+- multi-source point-in-time merging with look-ahead and collision rejection;
+- append-only memory, JSONL, and local HTTP sinks;
+- recorded-strategy discovery and evidence replay in the dashboard;
+- a runnable 360-event unfamiliar-strategy example;
 - browser checks for demo load, console errors, and A → B → A selected-loss determinism.
 
-In progress for the proper rebuild:
+Still required for production integrations:
 
-- wire typed ledger records through every import/replay route;
-- render ledger links, evidence status, and raw receipts in the primary card flow;
-- generate known-truth synthetic AI failure scenarios;
-- test supported, missing, contradictory, and time-invalid routes in browser and API suites;
-- add contradiction reports between model rationale and retained model inputs.
+- vendor-maintained adapters for specific brokers, OMSs, feature stores, and model registries;
+- durable model-artifact and dependency-environment storage, not only fingerprints;
+- corporate-action, fee, FX, partial-fill, amendment, and cancellation reconciliation;
+- authentication, access control, retention policies, and production-scale ingestion;
+- validated model-native contribution or counterfactual explanations where supported.
 
 ---
 

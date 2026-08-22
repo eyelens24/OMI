@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fundamental Alpha Debugger</title>
+    <title>OMI — AI Trade Decision Receipts</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -12,12 +12,12 @@
   <body>
     <main class="app">
       <header class="topbar">
-        <a class="brand" href="#"><span>Q</span> Alpha Debugger</a>
-        <p>Local post-mortems for quants</p>
+        <a class="brand" href="#"><span>O</span> OMI</a>
+        <p>Decision receipts for systematic trading</p>
       </header>
 
       <section class="hero">
-        <div><p class="eyebrow"><i></i> FUNDAMENTAL ALPHA POST-MORTEM</p><h1>Find the first thing that broke.</h1><p class="lede">Record a strategy’s decisions, then get a clear root-cause candidate and a flow explaining how it reached P&amp;L.</p></div>
+        <div><p class="eyebrow"><i></i> TRADING ALGORITHM FLIGHT RECORDER</p><h1>See what the algorithm did—and why.</h1><p class="lede">Follow its position over time. Click any point to see the latest action, the saved reason, and every input the algorithm had available beforehand.</p></div>
       </section>
 
       <section class="run-card">
@@ -27,7 +27,7 @@
 
       <section class="recorder-card">
         <div class="run-card-head"><div><p class="eyebrow">LOCAL FLIGHT RECORDER</p><h2>Watch a strategy without controlling it.</h2><p>Strategies can append fundamental snapshots, decisions, target weights, fills, and P&amp;L to this local app. Every event is stored immutably for later diagnosis.</p></div><span class="status" id="recorderState">No events yet</span></div>
-        <div class="recorder-actions"><button class="button secondary" id="loadFlightDemo">Run built-in test CSV</button><button class="button secondary" id="loadEvidenceDemo">Import AI contradiction demo</button><button class="text-button" id="refreshRecorder">Refresh recorder status</button></div>
+        <div class="recorder-actions"><button class="button secondary" id="openRecordedStrategy">Open latest recorded strategy</button><button class="button secondary" id="loadFlightDemo">Run built-in test CSV</button><button class="button secondary" id="loadCompleteLedgerDemo">Run full product CSV demo</button><button class="button secondary" id="loadEvidenceDemo">Import AI contradiction demo</button><button class="text-button" id="refreshRecorder">Refresh recorder status</button></div>
         <p class="recorder-meta" id="recorderMeta">No upload needed · uses the included synthetic incident CSV · read-only collector</p>
       </section>
 
@@ -37,12 +37,12 @@
           <article><span>OUTCOME MARKS</span><strong id="recordsMetric">—</strong><small>Decision-time P&amp;L observations</small></article>
           <article><span>FIRST MATERIAL SHIFT</span><strong id="changeMetric">—</strong><small id="changeDetail">—</small></article>
         </div>
-        <section class="incident-timeline" id="incidentCommandCenter"><div class="timeline-head"><div><p class="eyebrow">INCIDENT COMMAND CENTER</p><h2>Local forensic triage</h2><p id="commandCenterDetail">No broker or trade actions are available.</p></div><button class="button secondary" id="exportReceipt" type="button">Export reproducibility receipt</button></div><p class="recorder-meta">Snapshot <code id="snapshotIdentity">—</code> · local-only/read-only</p><div id="counterfactualCards"></div></section>
+        <section class="incident-timeline" id="incidentCommandCenter"><div class="timeline-head"><div><p class="eyebrow">DETECTED STRATEGY PROFILE</p><h2>What this file contains</h2><p id="commandCenterDetail">No broker or trade actions are available.</p></div><button class="button secondary" id="exportReceipt" type="button">Export reproducibility receipt</button></div><p class="recorder-meta" id="strategyProfile">Inspecting imported fields…</p><p class="recorder-meta">Snapshot <code id="snapshotIdentity">—</code> · local-only/read-only</p><div id="counterfactualCards"></div></section>
 
         <section class="incident-timeline" id="incidentTimeline" hidden>
-          <div class="timeline-head"><div><p class="eyebrow">INCIDENT TIMELINE</p><h2>Where did the loss happen?</h2><p>Click a marked loss to see the decision-time evidence that was available to the strategy.</p></div><span id="timelineStatus">—</span></div>
+          <div class="timeline-head"><div><p class="eyebrow">POSITION HISTORY</p><h2>How much of this stock did the algorithm hold?</h2><p>The line is the retained position or target position. Action dots show when it bought, sold, or held. Click any time to inspect what happened.</p></div><span id="timelineStatus">—</span></div>
           <div class="timeline-symbols" id="timelineSymbols" aria-label="Choose a stock to inspect"></div>
-          <div class="timeline-chart" id="timelineChart" aria-label="Incident P&amp;L timeline"></div>
+          <div class="timeline-chart" id="timelineChart" aria-label="Trading algorithm position history"></div>
           <div class="timeline-detail" id="timelineDetail"></div>
         </section>
 
@@ -53,10 +53,9 @@
         </section>
 
         <section class="diagnosis evidence-ledger" id="evidenceLedger">
-          <div class="section-head"><div><p class="eyebrow">REPLAYABLE Evidence Ledger</p><h2 id="diagnosisTitle">Where did the decision-to-P&amp;L chain first break?</h2><p id="diagnosisSubtitle">Each step is a retained record. Status tells you whether the supplied evidence supports, misses, contradicts, or invalidates the link.</p></div></div>
-          <div class="ledger-path" id="ledgerPath" aria-live="polite"></div>
-          <article class="ledger-receipt" id="ledgerReceipt" hidden><p class="eyebrow">SELECTED EVIDENCE RECEIPT</p><h3 id="ledgerReceiptTitle">Select a ledger step</h3><p id="ledgerReceiptDetail">The raw record, source, timestamp, and link status will appear here.</p></article>
+          <div class="section-head"><div><p class="eyebrow">ALGORITHM ACTION RECEIPT</p><h2 id="diagnosisTitle">What did the trading algorithm do here?</h2><p id="diagnosisSubtitle">The latest action, why it happened, and the information available before it acted.</p></div></div>
           <section class="ai-forensics" id="aiForensics" hidden></section>
+          <details class="decision-evidence"><summary>Show verification details</summary><p>These records verify the decision receipt. They are not the explanation itself.</p><div class="ledger-path" id="ledgerPath" aria-live="polite"></div><article class="ledger-receipt" id="ledgerReceipt" hidden><p class="eyebrow">SELECTED EVIDENCE RECEIPT</p><h3 id="ledgerReceiptTitle">Select a ledger step</h3><p id="ledgerReceiptDetail">The raw record, source, timestamp, and link status will appear here.</p></article></details>
           <article class="root-hypothesis" id="rootHypothesis" hidden><span id="rootKicker">LEADING ROOT-CAUSE CANDIDATE</span><strong id="rootLabel">—</strong><p id="rootDetail">—</p><div class="root-candidates" id="rootCandidates"></div></article>
           <div class="branches" id="branches"></div>
           <section class="confirmation-plan" id="confirmationPlan" hidden><p class="eyebrow">HOW TO CONFIRM OR REJECT THIS</p><h3>Next investigation steps</h3><ol id="confirmationSteps"></ol></section>

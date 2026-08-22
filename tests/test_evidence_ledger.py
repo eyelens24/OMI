@@ -11,7 +11,9 @@ class EvidenceLedgerTests(unittest.TestCase):
             {"kind": "position", "event_id": "p", "parent_id": "f", "timestamp": "2026-01-01T09:04:00Z"},
             {"kind": "pnl", "event_id": "x", "parent_id": "p", "timestamp": "2026-01-01T09:05:00Z"},
         ]
-        self.assertEqual([step["status"] for step in assess_lifecycle(events)], ["supported"] * 6)
+        steps = assess_lifecycle(events)
+        self.assertEqual([step["status"] for step in steps], ["supported"] * 6)
+        self.assertEqual(steps[1]["action"], None)
 
     def test_flags_missing_and_time_invalid_evidence(self):
         steps = assess_lifecycle([{"kind": "observation", "event_id": "o", "timestamp": "2026-01-01T09:00:00Z", "available_at": "2026-01-01T09:01:00Z"}])
