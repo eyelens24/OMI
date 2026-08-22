@@ -893,7 +893,7 @@ Complete record chain + reconciliation
 â‰  universal proof of economic causality
 
 Missing record chain
-â‰  permission to invent a causal narrative
+â‰  permission to invent a causal narrative. 
 ```
 
 That restraint is the point. Doctor Quant is not meant to make losses sound explained; it is meant to make the evidence trail impossible to bluff.
