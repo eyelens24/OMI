@@ -1405,6 +1405,12 @@ def run_demo(parameters):
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def end_headers(self):
+        path = urlparse(self.path).path
+        if path in ("/", "/index.html") or path.endswith((".html", ".css", ".js")):
+            self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def do_GET(self):
         parsed_url = urlparse(self.path)
         query = parse_qs(parsed_url.query)
