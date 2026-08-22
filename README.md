@@ -1,7 +1,7 @@
 # Doctor Quant — Decision-to-P&L Incident Forensics
 
 [Click here to test demo](https://doctorquant.onrender.com)
-Demo may take up to a minute to load, please be patient.
+*(Demo may take up to a minute to load, please be patient.)*
 
 Doctor Quant is a **forensic tool** for investigating trading incidents — moments where an algorithm made a decision and someone needs to know why.
 
