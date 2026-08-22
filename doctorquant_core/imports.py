@@ -1,4 +1,4 @@
-"""Read-only typed-event import validation for OMI evidence bundles."""
+"""Read-only typed-event import validation for Doctor Quant evidence bundles."""
 from .ledger import LIFECYCLE
 
 

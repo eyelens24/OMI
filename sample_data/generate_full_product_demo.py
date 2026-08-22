@@ -1,4 +1,4 @@
-"""Generate OMI's one presentation CSV with independent per-symbol strategies."""
+"""Generate Doctor Quant's one presentation CSV with independent per-symbol strategies."""
 from __future__ import annotations
 
 import csv

@@ -3,16 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OMI — AI Trade Decision Receipts</title>
+    <title>Doctor Quant — AI Trade Decision Receipts</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app">
       <header class="topbar">
-        <a class="brand" href="#"><span>O</span> OMI</a>
+        <a class="brand" href="#"><span>DQ</span> Doctor Quant</a>
         <p>Decision receipts for systematic trading</p>
       </header>
 
@@ -32,15 +32,23 @@
       </section>
 
       <section class="results" id="results" hidden>
-        <div class="summary-grid">
-          <article><span>INCIDENT P&amp;L</span><strong id="pnlMetric">—</strong><small id="pnlDetail">—</small></article>
-          <article><span>OUTCOME MARKS</span><strong id="recordsMetric">—</strong><small>Decision-time P&amp;L observations</small></article>
-          <article><span>FIRST MATERIAL SHIFT</span><strong id="changeMetric">—</strong><small id="changeDetail">—</small></article>
-        </div>
-        <section class="incident-timeline" id="incidentCommandCenter"><div class="timeline-head"><div><p class="eyebrow">DETECTED STRATEGY PROFILE</p><h2>What this file contains</h2><p id="commandCenterDetail">No broker or trade actions are available.</p></div><button class="button secondary" id="exportReceipt" type="button">Export reproducibility receipt</button></div><p class="recorder-meta" id="strategyProfile">Inspecting imported fields…</p><p class="recorder-meta">Snapshot <code id="snapshotIdentity">—</code> · local-only/read-only</p><div id="counterfactualCards"></div></section>
+        <section class="incident-overview" id="incidentCommandCenter">
+          <article class="incident-pnl"><span>INCIDENT P&amp;L</span><strong id="pnlMetric">—</strong><small id="pnlDetail">—</small></article>
+          <div class="strategy-profile-copy"><h2>DETECTED STRATEGY PROFILE</h2><p class="file-content-label">File content:</p><p id="commandCenterDetail">No broker or trade actions are available.</p><p class="recorder-meta" id="strategyProfile">Inspecting imported fields…</p><p class="recorder-meta">Snapshot <code id="snapshotIdentity">—</code> · local-only/read-only</p><button class="button secondary profile-export" id="exportReceipt" type="button">Export reproducibility receipt</button><div id="counterfactualCards"></div></div>
+        </section>
 
         <section class="incident-timeline" id="incidentTimeline" hidden>
-          <div class="timeline-head"><div><p class="eyebrow">POSITION HISTORY</p><h2>How much of this stock did the algorithm hold?</h2><p>The line is the retained position or target position. Action dots show when it bought, sold, or held. Click any time to inspect what happened.</p></div><span id="timelineStatus">—</span></div>
+          <div class="timeline-head timeline-history-head">
+            <h2>POSITION HISTORY</h2>
+            <div class="timeline-help">
+              <button class="timeline-help-button" type="button" aria-label="About position history" aria-describedby="timelineHelpText">?</button>
+              <div class="timeline-help-tooltip" id="timelineHelpText" role="tooltip">
+                <strong>How much of this stock did the algorithm hold?</strong>
+                <p>The line is the retained position or target position. Action dots show when it bought, sold, or held. Click any time to inspect what happened.</p>
+                <span id="timelineStatus">—</span>
+              </div>
+            </div>
+          </div>
           <div class="timeline-symbols" id="timelineSymbols" aria-label="Choose a stock to inspect"></div>
           <div class="timeline-chart" id="timelineChart" aria-label="Trading algorithm position history"></div>
           <div class="timeline-detail" id="timelineDetail"></div>
@@ -53,9 +61,9 @@
         </section>
 
         <section class="diagnosis evidence-ledger" id="evidenceLedger">
-          <div class="section-head"><div><p class="eyebrow">ALGORITHM ACTION RECEIPT</p><h2 id="diagnosisTitle">What did the trading algorithm do here?</h2><p id="diagnosisSubtitle">The latest action, why it happened, and the information available before it acted.</p></div></div>
+          <div class="section-head receipt-section-head"><div><p class="receipt-section-title">ALGORITHM ACTION RECEIPT</p><h2 id="diagnosisTitle">What did the trading algorithm do here?</h2><p id="diagnosisSubtitle">The latest action, why it happened, and the information available before it acted.</p></div><div class="receipt-time"><span id="receiptDate">Date: —</span><span id="receiptTime">Time: —</span></div></div>
           <section class="ai-forensics" id="aiForensics" hidden></section>
-          <details class="decision-evidence"><summary>Show verification details</summary><p>These records verify the decision receipt. They are not the explanation itself.</p><div class="ledger-path" id="ledgerPath" aria-live="polite"></div><article class="ledger-receipt" id="ledgerReceipt" hidden><p class="eyebrow">SELECTED EVIDENCE RECEIPT</p><h3 id="ledgerReceiptTitle">Select a ledger step</h3><p id="ledgerReceiptDetail">The raw record, source, timestamp, and link status will appear here.</p></article></details>
+          <details class="decision-evidence"><summary>Verification Details <span class="verification-help"><button class="verification-help-button" type="button" aria-label="About verification details" aria-describedby="verificationHelpText">?</button><span class="verification-help-tooltip" id="verificationHelpText" role="tooltip">These records verify the decision receipt. They are not the explanation itself.</span></span></summary><div class="ledger-path" id="ledgerPath" aria-live="polite"></div><article class="ledger-receipt" id="ledgerReceipt" hidden><p class="eyebrow">SELECTED EVIDENCE RECEIPT</p><h3 id="ledgerReceiptTitle">Select a ledger step</h3><p id="ledgerReceiptDetail">The raw record, source, timestamp, and link status will appear here.</p></article></details>
           <article class="root-hypothesis" id="rootHypothesis" hidden><span id="rootKicker">LEADING ROOT-CAUSE CANDIDATE</span><strong id="rootLabel">—</strong><p id="rootDetail">—</p><div class="root-candidates" id="rootCandidates"></div></article>
           <div class="branches" id="branches"></div>
           <section class="confirmation-plan" id="confirmationPlan" hidden><p class="eyebrow">HOW TO CONFIRM OR REJECT THIS</p><h3>Next investigation steps</h3><ol id="confirmationSteps"></ol></section>

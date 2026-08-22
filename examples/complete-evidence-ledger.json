@@ -1,5 +1,5 @@
 {
-  "schema": "omi-evidence-bundle/v1",
+  "schema": "doctorquant-evidence-bundle/v1",
   "label": "Demo: complete decision-to-P&L evidence chain",
   "events": [
     {
@@ -77,6 +77,6 @@
     "ledger_statuses": ["supported", "supported", "supported", "supported", "supported", "supported"],
     "first_break": null,
     "ai_provenance_status": "supported",
-    "presentation_message": "The decision-to-P&L chain is complete and time-valid. OMI can prove record lineage and reconciliation, but it does not claim that the decision economically caused the loss."
+    "presentation_message": "The decision-to-P&L chain is complete and time-valid. Doctor Quant can prove record lineage and reconciliation, but it does not claim that the decision economically caused the loss."
   }
 }

@@ -122,7 +122,7 @@ class _EnvelopeFactory:
 
 
 class CallableConnector(EvidenceConnector):
-    """Wrap an existing SDK/client function as an OMI evidence source."""
+    """Wrap an existing SDK/client function as an Doctor Quant evidence source."""
 
     def __init__(self, source_id: str, fetch: Callable[..., Mapping[str, Any]], **options: Any):
         self.factory = _EnvelopeFactory(source_id, **options)

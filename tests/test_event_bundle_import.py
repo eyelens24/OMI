@@ -1,5 +1,5 @@
 import unittest
-from omi_core.imports import validate_event_bundle
+from doctorquant_core.imports import validate_event_bundle
 
 class EventBundleImportTests(unittest.TestCase):
     def test_accepts_typed_local_event_bundle(self):

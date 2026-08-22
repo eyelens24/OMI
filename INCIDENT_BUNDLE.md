@@ -1,6 +1,6 @@
 # Incident Bundle v1
 
-OMI is a local forensic system for systematic-investing incidents. An incident bundle is the portable evidence package used to validate what can be investigated before any causal hypothesis is displayed.
+Doctor Quant is a local forensic system for systematic-investing incidents. An incident bundle is the portable evidence package used to validate what can be investigated before any causal hypothesis is displayed.
 
 ## Validation endpoint
 
@@ -41,7 +41,7 @@ The endpoint is read-only: it does not save an investigation, place orders, or m
 }
 ```
 
-`available_at` must not be later than the decision's `event_timestamp`. OMI rejects future-available observations to prevent lookahead bias.
+`available_at` must not be later than the decision's `event_timestamp`. Doctor Quant rejects future-available observations to prevent lookahead bias.
 
 ## Optional attribution evidence
 

@@ -21,10 +21,10 @@ from synthetic_ground_truth import scenario_catalog
 from evidence_flow import build_evidence_flow
 from investigation_snapshot import make_snapshot
 from hardening import adapt_read_only_bundle, reconcile_lifecycle, bounded_counterfactuals, make_reproducibility_receipt, incident_command
-from omi_core.ledger import ledger_for_records
-from omi_core.ai_forensics import assess_ai_decision
-from omi_core.imports import validate_event_bundle
-from omi_core.profiling import detected_decision, inspect_strategy
+from doctorquant_core.ledger import ledger_for_records
+from doctorquant_core.ai_forensics import assess_ai_decision
+from doctorquant_core.imports import validate_event_bundle
+from doctorquant_core.profiling import detected_decision, inspect_strategy
 
 ROOT = Path(__file__).parent
 STORE = InvestigationStore(ROOT / "data" / "quant_doctor.db")

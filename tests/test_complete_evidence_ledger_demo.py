@@ -2,9 +2,9 @@ import json
 import unittest
 from pathlib import Path
 
-from omi_core.ai_forensics import assess_ai_decision
-from omi_core.imports import validate_event_bundle
-from omi_core.ledger import ledger_for_records
+from doctorquant_core.ai_forensics import assess_ai_decision
+from doctorquant_core.imports import validate_event_bundle
+from doctorquant_core.ledger import ledger_for_records
 from investigation_graph import reconstruct_as_of
 from server import analyse, load_sample
 

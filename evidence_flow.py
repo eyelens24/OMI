@@ -1,4 +1,4 @@
-"""Deterministic, evidence-labelled diagnostic flows for OMI."""
+"""Deterministic, evidence-labelled diagnostic flows for Doctor Quant."""
 
 
 def build_evidence_flow(records, analysis):

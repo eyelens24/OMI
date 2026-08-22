@@ -1,5 +1,5 @@
 import unittest
-from omi_core.ai_forensics import assess_ai_decision
+from doctorquant_core.ai_forensics import assess_ai_decision
 
 class AiForensicsTests(unittest.TestCase):
     def test_reports_missing_provenance(self):

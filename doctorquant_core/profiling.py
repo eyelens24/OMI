@@ -15,7 +15,7 @@ ACTION_MAP = {"BUY": "BUY", "B": "BUY", "LONG": "BUY", "SELL": "SELL", "S": "SEL
 # These describe identity, actions, execution, positions, or outcomes. Everything
 # else supplied on a strategy/observation row is treated as a candidate model
 # input. This lets an imported strategy expose ten custom indicators without an
-# OMI code change, while keeping post-decision results out of "what it knew".
+# Doctor Quant code change, while keeping post-decision results out of "what it knew".
 NON_INPUT_FIELDS = {
     "timestamp", "available_at", "decision_timestamp", "kind", "event_type",
     "event_id", "parent_id", "decision_id", "target_id", "order_id", "fill_id",

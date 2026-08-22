@@ -1,4 +1,4 @@
-"""Known-truth local scenarios for OMI demo and regression testing."""
+"""Known-truth local scenarios for Doctor Quant demo and regression testing."""
 
 def scenario_catalog():
     common = {"decision": {"strategy_version": "demo-v1", "parameter_hash": "demo"}, "target": {"weight": .05}, "fill": {"quantity": 50, "price": 100}, "position": {"quantity": 50}, "pnl": {"realised_pnl": -500}}

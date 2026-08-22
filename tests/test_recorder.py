@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from omi_core.ai_forensics import assess_ai_decision
-from omi_core.ledger import ledger_for_records
-from omi_core.recorder import ExecutionAdapter, HttpSink, JsonlSink, MemorySink, StrategyRecorder
+from doctorquant_core.ai_forensics import assess_ai_decision
+from doctorquant_core.ledger import ledger_for_records
+from doctorquant_core.recorder import ExecutionAdapter, HttpSink, JsonlSink, MemorySink, StrategyRecorder
 from server import flight_events_to_evidence, normalise_flight_event, typed_events_to_outcome_records
 
 

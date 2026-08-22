@@ -1,4 +1,4 @@
-"""Runnable example: attach an unfamiliar strategy to OMI without changing its output."""
+"""Runnable example: attach an unfamiliar strategy to Doctor Quant without changing its output."""
 from __future__ import annotations
 
 import argparse
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from omi_core import CompositeSink, HttpSink, JsonlSink, MemorySink, StrategyRecorder
+from doctorquant_core import CompositeSink, HttpSink, JsonlSink, MemorySink, StrategyRecorder
 
 
 def build_demo(*, server_url=None, output_path=None, start=None):
@@ -32,7 +32,7 @@ def build_demo(*, server_url=None, output_path=None, start=None):
 
     @recorder.instrument()
     def trading_algorithm(market):
-        """This function knows nothing about OMI and returns its normal result."""
+        """This function knows nothing about Doctor Quant and returns its normal result."""
         current = int(market["current_position"])
         rsi = float(market["rsi_14"])
         regime = market["macro_regime"]
@@ -74,14 +74,14 @@ def build_demo(*, server_url=None, output_path=None, start=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Record a synthetic unfamiliar strategy with OMI.")
-    parser.add_argument("--server", help="Running OMI URL, for example http://127.0.0.1:8000")
+    parser = argparse.ArgumentParser(description="Record a synthetic unfamiliar strategy with Doctor Quant.")
+    parser.add_argument("--server", help="Running Doctor Quant URL, for example http://127.0.0.1:8000")
     parser.add_argument("--output", help="Optional append-only JSONL evidence file")
     args = parser.parse_args()
     recorder, memory = build_demo(server_url=args.server, output_path=args.output)
     print(f"Captured {len(memory.events)} immutable events for {recorder.strategy_id}.")
     if args.server:
-        print("In OMI, click 'Open latest recorded strategy'.")
+        print("In Doctor Quant, click 'Open latest recorded strategy'.")
     if args.output:
         print(f"Appended JSONL evidence to {args.output}.")
 

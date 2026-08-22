@@ -1,5 +1,5 @@
 {
-  "schema": "omi-evidence-bundle/v1",
+  "schema": "doctorquant-evidence-bundle/v1",
   "label": "Demo: AI rationale contradicts decision-time feature snapshot",
   "events": [
     {

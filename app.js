@@ -59,6 +59,16 @@ function formatTimestamp(value) {
   return String(value || '—').replace('T', ' ').slice(0, 16);
 }
 
+function renderReceiptTimestamp(value) {
+  const [rawDate = '—', time = '—'] = formatTimestamp(value).split(' ');
+  const [year, month, day] = rawDate.split('-');
+  const date = year && month && day ? `${day}/${month}/${year}` : rawDate;
+  const dateElement = document.querySelector('#receiptDate');
+  const timeElement = document.querySelector('#receiptTime');
+  if (dateElement) dateElement.textContent = `Date: ${date}`;
+  if (timeElement) timeElement.textContent = `Time: ${time}`;
+}
+
 function materialLossIndexes(records) {
   const losses = records.map((record, index) => ({ index, pnl: numericValue(record, 'pnl') }))
     .filter((item) => item.pnl !== null && item.pnl < 0)
@@ -206,7 +216,7 @@ function renderTimelineSeries() {
     renderTimelineSeries();
   }));
   if (!timelinePositionInfo || !timelinePositionValues.some((value) => value !== null)) {
-    chart.innerHTML = `<p class="timeline-empty"><b>Position history was not recorded.</b><span>Add <code>position_quantity</code>, <code>actual_position</code>, <code>target_quantity</code>, <code>target_position</code>, or <code>target_weight</code>. OMI will detect the field automatically.</span></p>`;
+    chart.innerHTML = `<p class="timeline-empty"><b>Position history was not recorded.</b><span>Add <code>position_quantity</code>, <code>actual_position</code>, <code>target_quantity</code>, <code>target_position</code>, or <code>target_weight</code>. Doctor Quant will detect the field automatically.</span></p>`;
     panel.hidden = false;
     document.querySelector('#timelineStatus').textContent = `${activeTimelineSymbol === '__all__' ? 'Portfolio' : activeTimelineSymbol} · position unavailable`;
     document.querySelector('#timelineDetail').innerHTML = '';
@@ -480,6 +490,7 @@ function renderAiForensics(receipts, ledger = {}, asOf = '', importedDecision = 
   const panel = document.querySelector('#aiForensics');
   if (!panel) return;
   if (!receipts?.length && !importedDecision) {
+    renderReceiptTimestamp(asOf);
     panel.hidden = false;
     panel.innerHTML = `<article class="decision-explainer status-missing"><p class="eyebrow">SELECTED POINT AT ${escapeHtml(formatTimestamp(asOf))}</p><h3>Action not retained</h3><p class="decision-why">A position was recorded, but no prior BUY, SELL, or HOLD action and reason were supplied for this point.</p></article>`;
     return;
@@ -509,10 +520,9 @@ function renderAiForensics(receipts, ledger = {}, asOf = '', importedDecision = 
   const signalValue = (key, value) => ['expected_return', 'earnings_revision_pct', 'revenue_growth_yoy'].includes(key) ? `${value}%` : value;
   const signals = Object.entries(item.signals || {}).slice(0, 3).map(([key, value]) => `<li><span>${escapeHtml(signalLabels[key] || key)}</span><b>${escapeHtml(signalValue(key, value))}</b></li>`).join('');
   const known = item.known || {};
-  const inputDetails = known.input_details || {};
   const knownInputs = Object.entries(known.inputs || {}).map(([key, value]) => {
-    const availableAt = inputDetails[key]?.available_at;
-    return `<li><span>${escapeHtml(signalLabels[key] || key.replaceAll('_', ' '))}</span><span class="decision-known-value"><b>${escapeHtml(signalValue(key, value))}</b>${availableAt ? `<small>available ${escapeHtml(formatTimestamp(availableAt))}</small>` : ''}</span></li>`;
+    const label = signalLabels[key] || key.replaceAll('_', ' ').replace(/^./, (character) => character.toUpperCase());
+    return `<li><span>${escapeHtml(label)}</span><span class="decision-known-value"><b>${escapeHtml(signalValue(key, value))}</b></span></li>`;
   }).join('');
   const sourceGroups = Object.entries(known.sources || {}).reduce((groups, [field, source]) => {
     const key = `${source.source_id || 'unknown'}|${source.version || ''}|${source.raw_hash || ''}`;
@@ -520,7 +530,7 @@ function renderAiForensics(receipts, ledger = {}, asOf = '', importedDecision = 
     groups[key].fields.push(field);
     return groups;
   }, {});
-  const knownSources = Object.values(sourceGroups).map((source) => `<li><span>${escapeHtml(source.source_id || 'Unknown source')}</span><span class="decision-known-value"><b>${source.fields.length} input${source.fields.length === 1 ? '' : 's'}</b><small>${source.version ? `${escapeHtml(source.version)} · ` : ''}available ${escapeHtml(formatTimestamp(source.available_at))}</small></span></li>`).join('');
+  const knownSources = Object.values(sourceGroups).map((source) => `<li><span>${escapeHtml(source.source_id || 'Unknown source')}</span><span class="decision-known-value"><b>${source.fields.length} input${source.fields.length === 1 ? '' : 's'}</b></span></li>`).join('');
   const knownMeta = [
     ['Model', known.model_version], ['Feature snapshot', known.feature_snapshot_id], ['Available', known.available_at ? formatTimestamp(known.available_at) : null],
   ].filter(([, value]) => value).map(([label, value]) => `<li><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></li>`).join('');
@@ -544,9 +554,10 @@ function renderAiForensics(receipts, ledger = {}, asOf = '', importedDecision = 
     : position.quantity ? `${position.quantity} shares` : 'Position not retained';
   const pnl = Number(outcome.pnl);
   const outcomeText = Number.isFinite(pnl) ? `${formatMoney(pnl)} P&L` : 'P&L not retained';
+  renderReceiptTimestamp(item.timestamp || asOf);
   panel.hidden = false;
   const inputCount = Object.keys(known.inputs || {}).length;
-  panel.innerHTML = `<article class="decision-explainer status-${escapeHtml(item.status)}"><p class="eyebrow">ALGORITHM ACTION AT ${escapeHtml(formatTimestamp(item.timestamp))}</p><h3>${escapeHtml(action)}${escapeHtml(symbol)}</h3><p class="decision-why"><b>Why:</b> ${escapeHtml(reason)}</p>${signals ? `<ul class="decision-signals">${signals}</ul>` : ''}<details class="decision-context" open><summary>What the algorithm knew (${inputCount} saved input${inputCount === 1 ? '' : 's'})</summary>${knownMeta ? `<ul class="decision-known">${knownMeta}</ul>` : ''}${knownSources ? `<p class="decision-context-label">CONNECTED SOURCES</p><ul class="decision-known">${knownSources}</ul>` : ''}${knownInputs ? `<p class="decision-context-label">INPUT VALUES</p><ul class="decision-known">${knownInputs}</ul>` : '<p>No detailed inputs were retained for this action.</p>'}</details><div class="decision-outcome"><div><span>DECIDED</span><b>${escapeHtml(intendedText)}</b></div><div><span>TRADED</span><b>${escapeHtml(fillText)}</b></div><div><span>POSITION AFTER</span><b>${escapeHtml(positionText)}</b></div><div><span>RECORDED RESULT</span><b>${escapeHtml(outcomeText)}</b></div></div><small>${escapeHtml(evidence)}</small></article>`;
+  panel.innerHTML = `<article class="decision-explainer status-${escapeHtml(item.status)}"><h3>${escapeHtml(action)}${escapeHtml(symbol)}</h3><p class="decision-why"><b>Why:</b> ${escapeHtml(reason)}</p>${signals ? `<ul class="decision-signals">${signals}</ul>` : ''}<div class="decision-context"><p class="decision-context-heading">WHAT THE ALGORITHM KNEW (${inputCount} SAVED INPUT${inputCount === 1 ? '' : 'S'})</p>${knownMeta ? `<ul class="decision-known decision-known-meta">${knownMeta}</ul>` : ''}${knownSources ? `<p class="decision-context-label">CONNECTED SOURCES</p><ul class="decision-known decision-known-sources">${knownSources}</ul>` : ''}${knownInputs ? `<p class="decision-context-label">INPUT VALUES</p><ul class="decision-known decision-known-inputs">${knownInputs}</ul>` : '<p>No detailed inputs were retained for this action.</p>'}</div><p class="decision-record-label">DECISION RECORD</p><div class="decision-outcome"><div><span>DECIDED</span><b>${escapeHtml(intendedText)}</b></div><div><span>TRADED</span><b>${escapeHtml(fillText)}</b></div><div><span>POSITION AFTER</span><b>${escapeHtml(positionText)}</b></div><div><span>RECORDED RESULT</span><b>${escapeHtml(outcomeText)}</b></div></div><small>${escapeHtml(evidence)}</small></article>`;
 }
 
 function renderStrategyProfile(profile) {
@@ -638,8 +649,6 @@ async function renderInvestigationGraph(records, analysis) {
       const summary = replay.analysis.summary;
       document.querySelector('#pnlMetric').textContent = formatMoney(summary.pnl);
       document.querySelector('#pnlDetail').textContent = `As of ${formatTimestamp(visibleTime)} · ${replay.records} observations`;
-      document.querySelector('#changeMetric').textContent = summary.change_label || 'No break yet';
-      document.querySelector('#changeDetail').textContent = formatTimestamp(summary.change_point.timestamp);
     };
     scrubber.max = Math.max(0, result.graph.timeline.length - 1);
     scrubber.value = scrubber.max;
@@ -660,9 +669,6 @@ function renderDiagnosis(result, records, label) {
   document.querySelector('#pnlDetail').textContent = summary.expected_pnl === null
     ? `P&L anomaly z-score ${summary.pnl_zscore}`
     : `Expected ${formatMoney(summary.expected_pnl)} · shortfall ${formatMoney(summary.implementation_shortfall)}`;
-  document.querySelector('#recordsMetric').textContent = result.records.toLocaleString();
-  document.querySelector('#changeMetric').textContent = result.summary.change_label || 'Detected';
-  document.querySelector('#changeDetail').textContent = summary.change_point.timestamp.slice(0, 16).replace('T', ' ');
   renderIncidentTimeline(records);
   renderExplanation(result, label);
   renderCounterfactualCards();
@@ -688,7 +694,7 @@ function parseCsv(text) {
 
 document.querySelector('#openRecordedStrategy').addEventListener('click', async () => {
   try {
-    setRunning('Opening the newest strategy captured by the local OMI recorder…');
+    setRunning('Opening the newest strategy captured by the local Doctor Quant recorder…');
     const strategiesResponse = await fetch('/api/flight-recorder/strategies');
     const strategies = await strategiesResponse.json();
     if (!strategiesResponse.ok) throw new Error(strategies.error || 'Could not list recorded strategies.');
@@ -702,9 +708,6 @@ document.querySelector('#openRecordedStrategy').addEventListener('click', async 
     const pnl = recorded.events.filter((event) => event.kind === 'pnl').reduce((total, event) => total + (numericValue(event, 'pnl') || 0), 0);
     document.querySelector('#pnlMetric').textContent = formatMoney(pnl);
     document.querySelector('#pnlDetail').textContent = `${recorded.events.filter((event) => event.kind === 'pnl').length} recorded P&L marks`;
-    document.querySelector('#recordsMetric').textContent = recorded.events.length.toLocaleString();
-    document.querySelector('#changeMetric').textContent = 'Recorded';
-    document.querySelector('#changeDetail').textContent = recorded.status.latest_event_timestamp ? formatTimestamp(recorded.status.latest_event_timestamp) : '—';
     renderSnapshotIdentity(recorded.snapshot_id, 'Recorder evidence is append-only and bound to this snapshot.');
     renderStrategyProfile(recorded.strategy_profile);
     renderLedger(recorded.ledger);
@@ -745,7 +748,7 @@ document.querySelector('#exportReceipt').addEventListener('click', async () => {
     if (!response.ok) throw new Error(receipt.error || 'Could not export receipt.');
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([JSON.stringify(receipt, null, 2)], { type: 'application/json' }));
-    link.download = `omi-receipt-${receipt.snapshot_id}.json`; link.click(); URL.revokeObjectURL(link.href);
+    link.download = `doctor-quant-receipt-${receipt.snapshot_id}.json`; link.click(); URL.revokeObjectURL(link.href);
     renderSnapshotIdentity(receipt.snapshot_id, 'Reproducibility receipt exported.');
   } catch (error) { notify(error.message); }
 });

@@ -66,7 +66,7 @@ def _json_ready(value: Any) -> Any:
         return [_json_ready(item) for item in value]
     if hasattr(value, "item") and callable(value.item):
         return _json_ready(value.item())
-    raise TypeError(f"OMI cannot fingerprint input value of type {type(value).__name__}; convert it to JSON data first.")
+    raise TypeError(f"Doctor Quant cannot fingerprint input value of type {type(value).__name__}; convert it to JSON data first.")
 
 
 def _canonical(value: Any) -> str:
@@ -90,7 +90,7 @@ def _timestamp(value: Any) -> str:
     else:
         raise TypeError("timestamp must be an ISO-8601 string or datetime")
     if parsed.tzinfo is None:
-        raise ValueError("OMI recorder timestamps must include a timezone offset")
+        raise ValueError("Doctor Quant recorder timestamps must include a timezone offset")
     return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
@@ -133,7 +133,7 @@ class JsonlSink:
 
 
 class HttpSink:
-    """Send evidence to OMI's local append-only flight-recorder endpoint."""
+    """Send evidence to Doctor Quant's local append-only flight-recorder endpoint."""
 
     def __init__(self, base_url: str = "http://127.0.0.1:8000", timeout: float = 3.0):
         self.url = base_url.rstrip("/") + "/api/flight-recorder/events"
@@ -156,7 +156,7 @@ class HttpSink:
         request = Request(self.url, data=body, headers={"Content-Type": "application/json"}, method="POST")
         with urlopen(request, timeout=self.timeout) as response:
             if response.status not in (200, 201):
-                raise RuntimeError(f"OMI collector rejected evidence with HTTP {response.status}")
+                raise RuntimeError(f"Doctor Quant collector rejected evidence with HTTP {response.status}")
 
 
 class CompositeSink:
@@ -171,7 +171,7 @@ class CompositeSink:
 
 
 class ExecutionAdapter:
-    """Map broker/OMS field names into OMI fill, position, and P&L facts."""
+    """Map broker/OMS field names into Doctor Quant fill, position, and P&L facts."""
 
     def __init__(self, **field_map: str):
         self.fields = {
@@ -470,7 +470,7 @@ class StrategyRecorder:
 
     def evidence_bundle(self) -> dict[str, Any]:
         return {
-            "schema_version": "omi-evidence/v1",
+            "schema_version": "doctorquant-evidence/v1",
             "strategy_id": self.strategy_id,
             "strategy_version": self.strategy_version,
             "parameter_hash": self.parameter_hash,

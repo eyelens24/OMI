@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from omi_core.ai_forensics import assess_ai_decision
-from omi_core.connectors import CallableConnector, ConnectorHub, FieldMapper, FileConnector, HttpJsonConnector
-from omi_core.recorder import StrategyRecorder
+from doctorquant_core.ai_forensics import assess_ai_decision
+from doctorquant_core.connectors import CallableConnector, ConnectorHub, FieldMapper, FileConnector, HttpJsonConnector
+from doctorquant_core.recorder import StrategyRecorder
 
 
 class FakeResponse:
@@ -87,7 +87,7 @@ class ConnectorTests(unittest.TestCase):
             mapper=FieldMapper({"sentiment_score": "metrics.sentiment"}),
         )
         payload = {"result": {"timestamp": "2026-08-22T09:29:00Z", "available_at": "2026-08-22T09:29:30Z", "metrics": {"sentiment": .61}}}
-        with patch("omi_core.connectors.urlopen", return_value=FakeResponse(payload)) as opened:
+        with patch("doctorquant_core.connectors.urlopen", return_value=FakeResponse(payload)) as opened:
             envelope = connector.read(symbol="AAPL", as_of="2026-08-22T09:30:00Z")
         request = opened.call_args.args[0]
         self.assertEqual(request.method, "GET")

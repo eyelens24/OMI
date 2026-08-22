@@ -10,7 +10,7 @@ $Python = 'C:\conda2\python.exe'
 $Port = 8000
 
 if (-not (Test-Path -LiteralPath $Python)) {
-    throw "OMI requires Python at $Python. Install/configure it before starting OMI."
+    throw "Doctor Quant requires Python at $Python. Install/configure it before starting Doctor Quant."
 }
 
 $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
@@ -22,7 +22,7 @@ Push-Location $Root
 try {
     if (-not $SkipTests) {
         & $Python -m unittest discover -s tests -q
-        if ($LASTEXITCODE -ne 0) { throw 'OMI tests failed; the server was not started.' }
+        if ($LASTEXITCODE -ne 0) { throw 'Doctor Quant tests failed; the server was not started.' }
     }
 
     # Child environment: HOST=127.0.0.1, PORT=8000. Never expose the local prototype to the network.
@@ -43,11 +43,11 @@ try {
 
     if (-not $healthy) {
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
-        throw 'OMI did not pass its local health check within 15 seconds.'
+        throw 'Doctor Quant did not pass its local health check within 15 seconds.'
     }
 
-    Write-Output "OMI_PID=$($process.Id)"
-    Write-Output "OMI_URL=http://127.0.0.1:$Port"
+    Write-Output "Doctor Quant_PID=$($process.Id)"
+    Write-Output "Doctor Quant_URL=http://127.0.0.1:$Port"
     Write-Output "STOP=Stop-Process -Id $($process.Id)"
     if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$Port" }
 } finally {

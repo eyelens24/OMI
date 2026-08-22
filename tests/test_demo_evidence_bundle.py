@@ -1,9 +1,9 @@
 import json
 import unittest
 from pathlib import Path
-from omi_core.imports import validate_event_bundle
-from omi_core.ledger import ledger_for_records
-from omi_core.ai_forensics import assess_ai_decision
+from doctorquant_core.imports import validate_event_bundle
+from doctorquant_core.ledger import ledger_for_records
+from doctorquant_core.ai_forensics import assess_ai_decision
 
 class DemoEvidenceBundleTests(unittest.TestCase):
     def test_ai_rationale_demo_has_reconciled_lifecycle_and_detected_contradiction(self):

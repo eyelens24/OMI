@@ -1,6 +1,6 @@
 import unittest
 
-from omi_core.profiling import detected_decision, inspect_strategy
+from doctorquant_core.profiling import detected_decision, inspect_strategy
 
 
 class StrategyProfilingTests(unittest.TestCase):

@@ -1,6 +1,6 @@
-# OMI — Decision-to-P&L Incident Forensics
+# Doctor Quant â€” Decision-to-P&L Incident Forensics
 
-OMI is a **local, read-only forensic prototype** for systematic-investment and AI-assisted decision incidents.
+Doctor Quant is a **local, read-only forensic prototype** for systematic-investment and AI-assisted decision incidents.
 
 It is not a trading bot, broker terminal, order-management system, stock picker, or automatic execution tool.
 
@@ -11,11 +11,11 @@ Its core question is deliberately narrow:
 In the product, that becomes a single **Decision Receipt** for a selected trade:
 
 ```text
-position before → BUY, SELL, or HOLD → why → inputs available beforehand
-→ intended size → actual execution → position after → P&L → trust status
+position before â†’ BUY, SELL, or HOLD â†’ why â†’ inputs available beforehand
+â†’ intended size â†’ actual execution â†’ position after â†’ P&L â†’ trust status
 ```
 
-The receipt is deliberately concise. OMI does not generate an after-the-fact story; it displays the rationale and signals retained when the decision was made, then labels whether the supporting chain is complete, missing, contradictory, or time-invalid.
+The receipt is deliberately concise. Doctor Quant does not generate an after-the-fact story; it displays the rationale and signals retained when the decision was made, then labels whether the supporting chain is complete, missing, contradictory, or time-invalid.
 
 The product principle is:
 
@@ -23,26 +23,26 @@ The product principle is:
 No evidence, no story.
 ```
 
-A fluent narrative is not a diagnosis. OMI must show the underlying evidence route, mark missing/contradictory links, and let another investigator reproduce the result.
+A fluent narrative is not a diagnosis. Doctor Quant must show the underlying evidence route, mark missing/contradictory links, and let another investigator reproduce the result.
 
 ## Repository layout
 
 The project is organized by concern so the code, data, and historical archives are easy to navigate:
 
-- `omi_core/` — core Python logic for evidence, attribution, and investigation graphs.
-- `tests/` — regression and behavior tests for the forensic pipeline.
-- `sample_data/full_product_demo.csv` — the single bundled presentation CSV and its generator.
-- `e2e/` — browser-based Playwright end-to-end checks.
-- `examples/` — example payloads and demonstration artifacts.
-- `requirements.txt` — Python runtime dependency manifest; currently standard-library only.
-- `archive/` — historical or superseded experiment notes and deployment artifacts.
-- top-level Python scripts — entry points and utilities for running the app and model workflow.
+- `doctorquant_core/` â€” core Python logic for evidence, attribution, and investigation graphs.
+- `tests/` â€” regression and behavior tests for the forensic pipeline.
+- `sample_data/full_product_demo.csv` â€” the single bundled presentation CSV and its generator.
+- `e2e/` â€” browser-based Playwright end-to-end checks.
+- `examples/` â€” example payloads and demonstration artifacts.
+- `requirements.txt` â€” Python runtime dependency manifest; currently standard-library only.
+- `archive/` â€” historical or superseded experiment notes and deployment artifacts.
+- top-level Python scripts â€” entry points and utilities for running the app and model workflow.
 
 ---
 
 ## Local-only safety boundary
 
-OMI is intentionally:
+Doctor Quant is intentionally:
 
 ```text
 local-only
@@ -57,7 +57,7 @@ The app binds to `127.0.0.1` and has no live-trading controls.
 
 ---
 
-## Install and start OMI
+## Install and start Doctor Quant
 
 ### Requirements
 
@@ -77,7 +77,7 @@ If the command is missing or reports a version older than 3.10, install a curren
 
 ### Windows
 
-1. Download or clone OMI and open PowerShell in the OMI folder.
+1. Download or clone Doctor Quant and open PowerShell in the Doctor Quant folder.
 2. Create an isolated Python environment and install the declared requirements:
 
    ```powershell
@@ -86,18 +86,18 @@ If the command is missing or reports a version older than 3.10, install a curren
    python -m pip install -r requirements.txt
    ```
 
-   The install currently downloads nothing because OMI has no third-party runtime packages. Keeping this step makes future dependency updates automatic.
+   The install currently downloads nothing because Doctor Quant has no third-party runtime packages. Keeping this step makes future dependency updates automatic.
 3. Start the application:
 
    ```powershell
-   python .\run-omi.py
+   python .\run-doctorquant.py
    ```
 
-   If PowerShell blocks environment activation, use `.\.venv\Scripts\python.exe .\run-omi.py` directly.
+   If PowerShell blocks environment activation, use `.\.venv\Scripts\python.exe .\run-doctorquant.py` directly.
 4. Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in a browser.
-5. Leave PowerShell open while using OMI. Press `Ctrl+C` there to stop it.
+5. Leave PowerShell open while using Doctor Quant. Press `Ctrl+C` there to stop it.
 
-You can alternatively double-click `Start-OMI-Server.cmd`; it tries the included Conda path first and then the normal Windows Python launchers.
+You can alternatively double-click `Start-DoctorQuant-Server.cmd`; it tries the included Conda path first and then the normal Windows Python launchers.
 
 Check the local server:
 
@@ -107,7 +107,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/healthz
 
 ### macOS
 
-1. Download or clone OMI and open Terminal in the OMI folder.
+1. Download or clone Doctor Quant and open Terminal in the Doctor Quant folder.
 2. Create an isolated Python environment and install the declared requirements:
 
    ```bash
@@ -116,23 +116,23 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/healthz
    python -m pip install -r requirements.txt
    ```
 
-   The install currently downloads nothing because OMI has no third-party runtime packages.
+   The install currently downloads nothing because Doctor Quant has no third-party runtime packages.
 3. Start the application:
 
    ```bash
-   python run-omi.py
+   python run-doctorquant.py
    ```
 
    Or use the included launcher:
 
    ```bash
-   chmod +x start-omi.sh Start-OMI.command
-   ./start-omi.sh
+   chmod +x start-doctorquant.sh Start-DoctorQuant.command
+   ./start-doctorquant.sh
    ```
 
-   After it has execute permission, `Start-OMI.command` can also be opened from Finder.
+   After it has execute permission, `Start-DoctorQuant.command` can also be opened from Finder.
 4. Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in a browser.
-5. Leave Terminal open while using OMI. Press `Control+C` to stop it.
+5. Leave Terminal open while using Doctor Quant. Press `Control+C` to stop it.
 
 Check the local server:
 
@@ -147,23 +147,23 @@ If port `8000` is already occupied, choose another local port:
 ```powershell
 # Windows PowerShell
 $env:PORT = "8001"
-python .\run-omi.py
+python .\run-doctorquant.py
 ```
 
 ```bash
 # macOS
-PORT=8001 python run-omi.py
+PORT=8001 python run-doctorquant.py
 ```
 
 Then open `http://127.0.0.1:8001`. Recorder examples must use the same port in their `--server` URL.
 
 ---
 
-## How to use OMI
+## How to use Doctor Quant
 
 ### 1. Explore the complete built-in example
 
-1. Start OMI and open the local dashboard.
+1. Start Doctor Quant and open the local dashboard.
 2. Click **Run complete CSV demo**.
 3. Select AAPL, MSFT, NVDA, JPM, or XOM above the position chart.
 4. Click any point. The line shows shares held and the coloured dots show BUY, SELL, and HOLD decisions.
@@ -187,7 +187,7 @@ Click **Upload one incident CSV** and select a local file. Recommended columns a
 | `decision_reason` | Recommended | Explanation retained when the strategy acted. |
 | `position_quantity` | Recommended | Actual shares held. |
 
-Additional pre-decision columns can be indicators; OMI detects their names dynamically. A fully verified receipt also needs the lifecycle and provenance fields described under **Complete-example format** below.
+Additional pre-decision columns can be indicators; Doctor Quant detects their names dynamically. A fully verified receipt also needs the lifecycle and provenance fields described under **Complete-example format** below.
 
 Statistical diagnosis requires at least 50 timestamped rows with numeric P&L. A shorter file can still be useful as typed lifecycle evidence, but it will not produce the full statistical analysis.
 
@@ -197,13 +197,13 @@ Use **Upload fundamentals + P&L** when inputs and outcomes are separate:
 
 1. Select the market or fundamental CSV.
 2. Select the strategy/P&L CSV.
-3. OMI joins each strategy observation to the newest market record available at or before its timestamp.
+3. Doctor Quant joins each strategy observation to the newest market record available at or before its timestamp.
 
-Both files need `timestamp`, both should contain `symbol` for symbol-aware alignment, and the strategy file needs `pnl`. OMI rejects rows that cannot be aligned inside the allowed time gap instead of silently using future information.
+Both files need `timestamp`, both should contain `symbol` for symbol-aware alignment, and the strategy file needs `pnl`. Doctor Quant rejects rows that cannot be aligned inside the allowed time gap instead of silently using future information.
 
 ### 4. Open a recorded strategy
 
-Keep OMI running and open a second terminal in the project folder.
+Keep Doctor Quant running and open a second terminal in the project folder.
 
 Windows:
 
@@ -217,7 +217,7 @@ macOS:
 python3 examples/instrumented_strategy.py --server http://127.0.0.1:8000
 ```
 
-Return to the dashboard and click **Open latest recorded strategy**. OMI displays the decisions and evidence appended by that strategy. The recorder observes the strategy; it never submits an order.
+Return to the dashboard and click **Open latest recorded strategy**. Doctor Quant displays the decisions and evidence appended by that strategy. The recorder observes the strategy; it never submits an order.
 
 ### 5. Understand incomplete results
 
@@ -227,21 +227,21 @@ Return to the dashboard and click **Open latest recorded strategy**. OMI display
 - **Time-invalid**: evidence became available only after the decision.
 - **Inferred**: the result is an investigative hypothesis rather than a retained fact.
 
-OMI does not manufacture missing actions or explanations. A partial CSV can still be analysed, but the dashboard identifies what it cannot prove.
+Doctor Quant does not manufacture missing actions or explanations. A partial CSV can still be analysed, but the dashboard identifies what it cannot prove.
 
 ---
 
 ## Connect an unfamiliar trading algorithm
 
-OMI now includes a framework-neutral Python flight recorder in [`omi_core/recorder.py`](omi_core/recorder.py). Its purpose is:
+Doctor Quant now includes a framework-neutral Python flight recorder in [`doctorquant_core/recorder.py`](doctorquant_core/recorder.py). Its purpose is:
 
-> Connect an unfamiliar trading algorithm, capture its decision state, and later reproduce why a position changed through one common evidence contract—even when the strategy, model, input names, or broker field names differ.
+> Connect an unfamiliar trading algorithm, capture its decision state, and later reproduce why a position changed through one common evidence contractâ€”even when the strategy, model, input names, or broker field names differ.
 
 The recorder observes the algorithm. It never places an order and never needs broker credentials.
 
 ### Fastest complete example
 
-1. Start OMI.
+1. Start Doctor Quant.
 2. In a second terminal, run:
 
    ```powershell
@@ -258,14 +258,14 @@ The recorder observes the algorithm. It never places an order and never needs br
 4. Choose the stock and click any point on its position line.
 5. Expand **What the algorithm knew**.
 
-The example runs an ordinary RSI/regime strategy for 60 decisions. It records 360 linked events and deliberately includes an unused vendor field. OMI excludes that unused field because the instrumented strategy never reads it.
+The example runs an ordinary RSI/regime strategy for 60 decisions. It records 360 linked events and deliberately includes an unused vendor field. Doctor Quant excludes that unused field because the instrumented strategy never reads it.
 
 ### Minimal integration
 
 An existing strategy whose first argument is a mapping can be wrapped without changing its return value:
 
 ```python
-from omi_core import HttpSink, StrategyRecorder
+from doctorquant_core import HttpSink, StrategyRecorder
 
 recorder = StrategyRecorder(
     "production_alpha_v7",
@@ -338,14 +338,14 @@ receipt.record_pnl(
 )
 ```
 
-OMI refuses invalid ordering: a fill requires a recorded target, a position requires its fill, and P&L requires the resulting position. It also rejects an input whose `available_at` is later than the decision timestamp.
+Doctor Quant refuses invalid ordering: a fill requires a recorded target, a position requires its fill, and P&L requires the resulting position. It also rejects an input whose `available_at` is later than the decision timestamp.
 
 ### Adapt different broker field names
 
 The execution adapter maps an external payload without putting vendor-specific names into the core:
 
 ```python
-from omi_core import ExecutionAdapter
+from doctorquant_core import ExecutionAdapter
 
 broker = ExecutionAdapter(
     timestamp="eventTime",
@@ -363,7 +363,7 @@ broker.record_fill(receipt, {
 })
 ```
 
-Use `input_selector=` when the strategy's input mapping is not its first argument, and `result_adapter=` when its output is not already a mapping containing OMI's action/target fields. These two boundaries are where framework- or model-specific adapters belong.
+Use `input_selector=` when the strategy's input mapping is not its first argument, and `result_adapter=` when its output is not already a mapping containing Doctor Quant's action/target fields. These two boundaries are where framework- or model-specific adapters belong.
 
 ### Storage and inspection
 
@@ -371,7 +371,7 @@ Available sinks are:
 
 - `MemorySink` for tests or embedding;
 - `JsonlSink(path)` for an append-only local evidence file;
-- `HttpSink(url)` for the local OMI collector;
+- `HttpSink(url)` for the local Doctor Quant collector;
 - `CompositeSink(...)` for more than one destination.
 
 The collector ignores duplicate event IDs and never overwrites an earlier event. Recorded strategies can be queried through:
@@ -383,17 +383,17 @@ GET /api/flight-recorder/evidence?strategy_id=production_alpha_v7
 
 ### Connect arbitrary APIs and additional data
 
-[`omi_core/connectors.py`](omi_core/connectors.py) defines the common read-only boundary for external information:
+[`doctorquant_core/connectors.py`](doctorquant_core/connectors.py) defines the common read-only boundary for external information:
 
 ```text
 HTTP API / vendor SDK / CSV / JSON / JSONL
-→ source envelope
-→ field mapping
-→ availability check
-→ merged decision snapshot
-→ StrategyRecorder
-→ execution adapter
-→ OMI dashboard
+â†’ source envelope
+â†’ field mapping
+â†’ availability check
+â†’ merged decision snapshot
+â†’ StrategyRecorder
+â†’ execution adapter
+â†’ Doctor Quant dashboard
 ```
 
 Built-in connector primitives:
@@ -410,7 +410,7 @@ Built-in connector primitives:
 Example using unrelated market and risk APIs:
 
 ```python
-from omi_core import CallableConnector, ConnectorHub, FieldMapper
+from doctorquant_core import CallableConnector, ConnectorHub, FieldMapper
 
 market = CallableConnector(
     "market-vendor",
@@ -461,15 +461,15 @@ python3 examples/connected_sources_strategy.py --server http://127.0.0.1:8000
 
 To support another API, subclass `EvidenceConnector` and implement its single `read(...) -> SourceEnvelope` method, or wrap the provider's existing client with `CallableConnector`. No change to the ledger, dashboard, or recorder is required.
 
-### What “automatic” does and does not mean
+### What â€œautomaticâ€ does and does not mean
 
-For a mapping-based Python function, OMI can automatically observe which keys are read and capture its returned decision. The connector layer can normalize any source that exposes a readable payload, but each new provider still needs credentials, a fetch function or URL, timestamp semantics, and a field map. OMI cannot inspect arbitrary native code, remote model servers, a pandas pipeline, or a broker account without an adapter at that boundary. It also cannot prove that a provider timestamp is truthful or that a human-written reason is economically correct merely because it was recorded.
+For a mapping-based Python function, Doctor Quant can automatically observe which keys are read and capture its returned decision. The connector layer can normalize any source that exposes a readable payload, but each new provider still needs credentials, a fetch function or URL, timestamp semantics, and a field map. Doctor Quant cannot inspect arbitrary native code, remote model servers, a pandas pipeline, or a broker account without an adapter at that boundary. It also cannot prove that a provider timestamp is truthful or that a human-written reason is economically correct merely because it was recorded.
 
 Production-grade reconstruction still requires the real system to provide its timestamps, immutable model artifacts, data versions, order/fill events, positions, corporate actions, fees, FX treatment, and accounting marks. The recorder makes these facts comparable and replayable; it does not manufacture facts that the connected systems never expose.
 
 ## Presentation-ready demo
 
-For the clearest product walkthrough, click **Run complete CSV demo**. It loads [`sample_data/full_product_demo.csv`](sample_data/full_product_demo.csv), the one bundled CSV. It contains five independent strategies with changing share positions, BUY/SELL/HOLD actions, saved reasons, strategy-specific inputs, execution records, and P&L. OMI detects those fields and adapts the position chart and action receipt automatically.
+For the clearest product walkthrough, click **Run complete CSV demo**. It loads [`sample_data/full_product_demo.csv`](sample_data/full_product_demo.csv), the one bundled CSV. It contains five independent strategies with changing share positions, BUY/SELL/HOLD actions, saved reasons, strategy-specific inputs, execution records, and P&L. Doctor Quant detects those fields and adapts the position chart and action receipt automatically.
 
 The stocks deliberately do not trade together. AAPL uses RSI mean reversion, MSFT uses 20-day momentum, NVDA uses a volatility gate, JPM uses bank-fundamental signals, and XOM uses oil momentum and inventory information. Their decisions therefore occur at different times and produce different position paths.
 
@@ -477,23 +477,23 @@ The stocks deliberately do not trade together. AAPL uses RSI mean reversion, MSF
 
 1. **Set the boundary.**
 
-   > “OMI is a local, read-only forensic tool. It does not trade, change accounts, or invent a reason for a loss.”
+   > â€œDoctor Quant is a local, read-only forensic tool. It does not trade, change accounts, or invent a reason for a loss.â€
 
 2. Click **Run complete CSV demo**. Choose a stock and show its position history. The line is how many shares were held; the coloured dots are the recorded BUY, SELL, and HOLD actions. Click anywhere on the line, then switch symbols to show that each strategy responds to different inputs.
 
-   > “This is the algorithm’s position over time—not an abstract buy/sell score. Every point can be inspected.”
+   > â€œThis is the algorithmâ€™s position over timeâ€”not an abstract buy/sell score. Every point can be inspected.â€
 
 3. In the action receipt, show the action, saved explanation, traded quantity, resulting position, and recorded P&L. Expand **What the algorithm knew** to show every retained indicator and when it was available.
 
-   > “OMI reconstructs the latest action using only data available by the selected time. If the strategy adds or removes indicators, this list changes automatically.”
+   > â€œDoctor Quant reconstructs the latest action using only data available by the selected time. If the strategy adds or removes indicators, this list changes automatically.â€
 
 4. Expand the verification details and show the evidence path:
 
    ```text
-   observation → decision → target → fill → position → P&L
+   observation â†’ decision â†’ target â†’ fill â†’ position â†’ P&L
    ```
 
-   > “Each card is a retained record, and each arrow is an explicit parent-child link—not an AI-generated story.”
+   > â€œEach card is a retained record, and each arrow is an explicit parent-child linkâ€”not an AI-generated story.â€
 
 5. Click each ledger card. Explain that its receipt identifies the event and why the step is supported. In the supplied example:
 
@@ -508,11 +508,11 @@ The stocks deliberately do not trade together. AAPL uses RSI mean reversion, MSF
 
 6. Point out the decision provenance receipt. It identifies the strategy version, model version, feature snapshot, action, and structured reasons.
 
-   > “This proves that the record chain is complete and time-valid. It does *not* prove that the model economically caused a loss. It proves exactly what OMI is permitted to say from the evidence.”
+   > â€œThis proves that the record chain is complete and time-valid. It does *not* prove that the model economically caused a loss. It proves exactly what Doctor Quant is permitted to say from the evidence.â€
 
 ### Suggested 90-second presentation script
 
-> “OMI is a flight recorder for trading algorithms. The position line shows how many shares the algorithm held over time. I can click any point and see the latest action, why it acted, what actually traded, and every saved market or model input available beforehand. The dashboard is not tied to a fixed indicator list: it discovers the fields supplied by each strategy. Underneath, the evidence chain verifies that the observation, decision, target, fill, position, and P&L records really connect. If the file did not retain an action or input, OMI says so instead of inventing an explanation.”
+> â€œDoctor Quant is a flight recorder for trading algorithms. The position line shows how many shares the algorithm held over time. I can click any point and see the latest action, why it acted, what actually traded, and every saved market or model input available beforehand. The dashboard is not tied to a fixed indicator list: it discovers the fields supplied by each strategy. Underneath, the evidence chain verifies that the observation, decision, target, fill, position, and P&L records really connect. If the file did not retain an action or input, Doctor Quant says so instead of inventing an explanation.â€
 
 ### Interpreting the result
 
@@ -522,7 +522,7 @@ The stocks deliberately do not trade together. AAPL uses RSI mean reversion, MSF
 | `MISSING` | The relevant record or parent link was not supplied. | Export/retain the named decision, target, order/fill, or position record. |
 | `CONTRADICTED` | A supplied parent ID or AI rationale conflicts with other retained evidence. | Resolve the source-system discrepancy; do not make a causal claim yet. |
 | `TIME-INVALID` | Evidence was available only after the event it claims to support. | Exclude it from the decision-time explanation; retrieve the point-in-time version. |
-| `INFERRED` | OMI has a bounded pattern-based hypothesis, not a proven link. | Treat it as an investigation lead and collect confirming evidence. |
+| `INFERRED` | Doctor Quant has a bounded pattern-based hypothesis, not a proven link. | Treat it as an investigation lead and collect confirming evidence. |
 
 ### Complete-example format
 
@@ -541,9 +541,9 @@ Every event needs these base fields:
 
 `kind` must be one of `observation`, `decision`, `target`, `fill`, `position`, or `pnl`. `event_id` and `timestamp` are mandatory. Except for `observation`, each event should use `parent_id` to reference the event that immediately precedes it in the lifecycle. Add `available_at` to evidence whose availability matters; it must not be later than the decision it supports.
 
-For an algorithm decision, retain at least `model_version`, `feature_snapshot_id`, `decision_timestamp`, `available_at`, `action`, and `decision_reason`. Record actual holdings as `position_quantity` (preferred), `actual_position`, or `position`; OMI falls back to `target_quantity`, `target_position`, or `target_weight` when actual holdings are unavailable.
+For an algorithm decision, retain at least `model_version`, `feature_snapshot_id`, `decision_timestamp`, `available_at`, `action`, and `decision_reason`. Record actual holdings as `position_quantity` (preferred), `actual_position`, or `position`; Doctor Quant falls back to `target_quantity`, `target_position`, or `target_weight` when actual holdings are unavailable.
 
-Indicator names are not fixed. Any additional non-lifecycle columns on the observation/decision records—such as `rsi_14`, `macro_regime`, `sentiment_score`, or proprietary factors—are discovered and shown under **What the algorithm knew**. OMI walks backward from the decision and uses the newest value whose `available_at` (or `timestamp`) is not later than the decision time. Post-decision execution and outcome fields are excluded.
+Indicator names are not fixed. Any additional non-lifecycle columns on the observation/decision recordsâ€”such as `rsi_14`, `macro_regime`, `sentiment_score`, or proprietary factorsâ€”are discovered and shown under **What the algorithm knew**. Doctor Quant walks backward from the decision and uses the newest value whose `available_at` (or `timestamp`) is not later than the decision time. Post-decision execution and outcome fields are excluded.
 
 ### CSV versus an Evidence Bundle
 
@@ -552,19 +552,19 @@ The normal CSV workflow accepts P&L and market/strategy measurements. It can ide
 Use an Evidence Bundle when you need the full ledger. A normal CSV will therefore commonly show:
 
 ```text
-SUPPORTED observation → MISSING decision → MISSING target
-→ MISSING fill → MISSING position → SUPPORTED P&L
+SUPPORTED observation â†’ MISSING decision â†’ MISSING target
+â†’ MISSING fill â†’ MISSING position â†’ SUPPORTED P&L
 ```
 
 That is an honest import result, not dropped data or a product failure.
 
 ### Demo workflow for the analysis/replay experience
 
-1. Open OMI and click **Run complete CSV demo**.
+1. Open Doctor Quant and click **Run complete CSV demo**.
 2. Inspect the incident timeline and select a material loss.
 3. Read the **Explanation built from your data** flow:
    ```text
-   observed break → decision/translation mechanism → outcome
+   observed break â†’ decision/translation mechanism â†’ outcome
    ```
 4. Use the replay control in that same section. It rebuilds the investigation using only records available by the selected point in time.
 5. Check the displayed immutable **snapshot ID**.
@@ -579,15 +579,15 @@ The bundled CSV is synthetic. It demonstrates deterministic mechanics and a comp
 
 ## 1. The Evidence Ledger
 
-OMI is being rebuilt around a typed decision-to-P&L evidence ledger. Every incident should be expressible as this chain:
+Doctor Quant is being rebuilt around a typed decision-to-P&L evidence ledger. Every incident should be expressible as this chain:
 
 ```text
 observation
-→ decision
-→ target
-→ fill
-→ position
-→ P&L
+â†’ decision
+â†’ target
+â†’ fill
+â†’ position
+â†’ P&L
 ```
 
 ### Evidence status taxonomy
@@ -635,13 +635,13 @@ A record may only support a decision if it was available on or before the decisi
 available_at <= decision_timestamp
 ```
 
-`observed_at` alone is insufficient. Fundamentals, research data, market data, and AI outputs may be revised later; OMI needs the actual version that was available at decision time.
+`observed_at` alone is insufficient. Fundamentals, research data, market data, and AI outputs may be revised later; Doctor Quant needs the actual version that was available at decision time.
 
 ---
 
-## 2. What OMI should diagnose
+## 2. What Doctor Quant should diagnose
 
-OMI should automatically construct a replayable investigation route for every incident, without a human drawing arrows.
+Doctor Quant should automatically construct a replayable investigation route for every incident, without a human drawing arrows.
 
 ### Evidence-complete route
 
@@ -649,11 +649,11 @@ When all records are present and reconcile:
 
 ```text
 Vendor snapshot V-18 available at 09:25
-→ model run M-492 decided at 09:30
-→ target T-77 at 09:31
-→ fill F-882 at 09:32
-→ position P-19
-→ P&L at 16:00
+â†’ model run M-492 decided at 09:30
+â†’ target T-77 at 09:31
+â†’ fill F-882 at 09:32
+â†’ position P-19
+â†’ P&L at 16:00
 ```
 
 The app should report the exact supported mismatch or contributor:
@@ -668,13 +668,13 @@ Therefore execution/translation is supported as a contributor.
 
 ### Evidence-gap route
 
-When the chain is incomplete, OMI must still render a useful investigation path:
+When the chain is incomplete, Doctor Quant must still render a useful investigation path:
 
 ```text
 Observed P&L loss
-→ candidate layer: data / decision / target translation / execution / market
-→ missing evidence required to confirm or reject that route
-→ bounded conclusion: hypothesis, not established cause
+â†’ candidate layer: data / decision / target translation / execution / market
+â†’ missing evidence required to confirm or reject that route
+â†’ bounded conclusion: hypothesis, not established cause
 ```
 
 It must not show a blank panel and it must not call a generated route causal proof.
@@ -683,7 +683,7 @@ It must not show a blank panel and it must not call a generated route causal pro
 
 ## 3. AI decision failure forensics
 
-For an AI or ML-driven strategy, "why did it decide that?" requires more than a final score. OMI must retain the **decision provenance**.
+For an AI or ML-driven strategy, "why did it decide that?" requires more than a final score. Doctor Quant must retain the **decision provenance**.
 
 ### Required AI/strategy decision record
 
@@ -698,24 +698,24 @@ For an AI or ML-driven strategy, "why did it decide that?" requires more than a 
 | `available_at` | Proves the data/model output was available then. |
 | `symbol` / portfolio entity | Joins the decision to target, fills, and P&L. |
 | `action`, `target_weight`, `target_quantity` | States intended action, not merely a narrative. |
-| `score`, `rank`, `expected_return`, `confidence` | Captures the model’s expressed belief. |
+| `score`, `rank`, `expected_return`, `confidence` | Captures the modelâ€™s expressed belief. |
 | `feature_snapshot_id` / input hashes | Identifies exactly what the model saw. |
-| `reason_codes` / feature contributions | Human-readable, structured rationale—not free-form post-hoc prose. |
+| `reason_codes` / feature contributions | Human-readable, structured rationaleâ€”not free-form post-hoc prose. |
 | `raw_artifact_hash` | Allows evidence integrity checks. |
 
-### AI failure classes OMI should distinguish
+### AI failure classes Doctor Quant should distinguish
 
 | Failure class | Evidence needed | Example conclusion |
 | --- | --- | --- |
-| Input/data failure | point-in-time vendor snapshots, availability times, revisions, feature hashes | “The model used a stale/revised input.” |
-| Model/policy failure | model version, features, score/rank, policy/prompt, decision record | “The deployed model ranked this asset despite adverse supported inputs.” |
-| Portfolio translation failure | decision, target, optimizer constraints, target output | “The decision did not translate to the intended target.” |
-| Execution failure | order/fill IDs, timestamps, price, fees, venue, slippage | “The target was correct; execution diverged materially.” |
-| Position/accounting failure | fill-position mapping, corporate actions, valuation marks | “The reported P&L does not reconcile to the held position.” |
-| Market/regime failure | benchmark/factor/exposure/market records available at time | “Market movement explains observed loss; no data fault is supported.” |
-| Explanation failure | model rationale versus actual inputs/policy/result | “The claimed AI rationale contradicts retained decision evidence.” |
+| Input/data failure | point-in-time vendor snapshots, availability times, revisions, feature hashes | â€œThe model used a stale/revised input.â€ |
+| Model/policy failure | model version, features, score/rank, policy/prompt, decision record | â€œThe deployed model ranked this asset despite adverse supported inputs.â€ |
+| Portfolio translation failure | decision, target, optimizer constraints, target output | â€œThe decision did not translate to the intended target.â€ |
+| Execution failure | order/fill IDs, timestamps, price, fees, venue, slippage | â€œThe target was correct; execution diverged materially.â€ |
+| Position/accounting failure | fill-position mapping, corporate actions, valuation marks | â€œThe reported P&L does not reconcile to the held position.â€ |
+| Market/regime failure | benchmark/factor/exposure/market records available at time | â€œMarket movement explains observed loss; no data fault is supported.â€ |
+| Explanation failure | model rationale versus actual inputs/policy/result | â€œThe claimed AI rationale contradicts retained decision evidence.â€ |
 
-OMI should be able to say **where the AI failed** only when this evidence exists. If a model has no retained decision provenance, OMI may say:
+Doctor Quant should be able to say **where the AI failed** only when this evidence exists. If a model has no retained decision provenance, Doctor Quant may say:
 
 ```text
 The system produced a position, but the supplied records cannot establish why.
@@ -746,7 +746,7 @@ Questions to answer:
 2. Can we reconstruct its exact input data and feature values as available then?
 3. Are scores, ranks, confidence, action, and target output retained?
 4. Are reasons structured evidence, or merely generated natural language?
-5. Can a model’s rationale be tested against its actual retained inputs?
+5. Can a modelâ€™s rationale be tested against its actual retained inputs?
 
 ## Market and fundamental data sources
 
@@ -817,7 +817,7 @@ Implemented and tested:
 - automatic evidence-flow fallback with `supported`, `candidate`, and `gap` labels;
 - typed Evidence Ledger foundation for:
   ```text
-  observation → decision → target → fill → position → P&L
+  observation â†’ decision â†’ target â†’ fill â†’ position â†’ P&L
   ```
 - framework-neutral `StrategyRecorder` with accessed-input capture;
 - callable, parameter, feature-snapshot, and raw-event fingerprints;
@@ -830,7 +830,7 @@ Implemented and tested:
 - append-only memory, JSONL, and local HTTP sinks;
 - recorded-strategy discovery and evidence replay in the dashboard;
 - a runnable 360-event unfamiliar-strategy example;
-- browser checks for demo load, console errors, and A → B → A selected-loss determinism.
+- browser checks for demo load, console errors, and A â†’ B â†’ A selected-loss determinism.
 
 Still required for production integrations:
 
@@ -872,13 +872,13 @@ Run the optional browser tests from the project folder:
 npx playwright test
 ```
 
-A release claim requires all applicable checks to pass, plus the platform-specific health check documented under **Install and start OMI**.
+A release claim requires all applicable checks to pass, plus the platform-specific health check documented under **Install and start Doctor Quant**.
 
 ---
 
 # Accuracy boundary
 
-OMI can make deterministic, reproducible claims about the records supplied to it:
+Doctor Quant can make deterministic, reproducible claims about the records supplied to it:
 
 - whether a link exists;
 - whether it is time-valid;
@@ -886,14 +886,14 @@ OMI can make deterministic, reproducible claims about the records supplied to it
 - which model/data/decision artifact was supplied;
 - what evidence is missing or contradictory.
 
-OMI cannot establish real-world causal truth from synthetic data, missing provenance, or correlation alone.
+Doctor Quant cannot establish real-world causal truth from synthetic data, missing provenance, or correlation alone.
 
 ```text
 Complete record chain + reconciliation
-≠ universal proof of economic causality
+â‰  universal proof of economic causality
 
 Missing record chain
-≠ permission to invent a causal narrative
+â‰  permission to invent a causal narrative
 ```
 
-That restraint is the point. OMI is not meant to make losses sound explained; it is meant to make the evidence trail impossible to bluff.
+That restraint is the point. Doctor Quant is not meant to make losses sound explained; it is meant to make the evidence trail impossible to bluff.

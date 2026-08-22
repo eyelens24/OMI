@@ -6,7 +6,7 @@ from http.server import ThreadingHTTPServer
 from urllib.request import urlopen
 
 import server
-from omi_core.recorder import HttpSink, StrategyRecorder
+from doctorquant_core.recorder import HttpSink, StrategyRecorder
 from storage import InvestigationStore
 
 

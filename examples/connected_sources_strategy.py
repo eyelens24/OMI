@@ -1,4 +1,4 @@
-"""Example of merging unrelated data APIs and broker fields into one OMI receipt."""
+"""Example of merging unrelated data APIs and broker fields into one Doctor Quant receipt."""
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import argparse
@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from omi_core import CallableConnector, ConnectorHub, ExecutionAdapter, FieldMapper, HttpSink, StrategyRecorder
+from doctorquant_core import CallableConnector, ConnectorHub, ExecutionAdapter, FieldMapper, HttpSink, StrategyRecorder
 
 
 def main():
@@ -49,7 +49,7 @@ def main():
     broker.record_fill(receipt, {"eventTime": (now + timedelta(seconds=1)).isoformat(), "filledQty": 75, "avgPx": 229.14, "brokerOrderId": "example-1"})
     broker.record_position(receipt, {"eventTime": (now + timedelta(seconds=2)).isoformat(), "netPosition": 75, "account": "paper"})
     broker.record_pnl(receipt, {"eventTime": (now + timedelta(seconds=3)).isoformat(), "netPL": -12.5, "currency": "USD"})
-    print("Recorded one multi-source decision. Click 'Open latest recorded strategy' in OMI.")
+    print("Recorded one multi-source decision. Click 'Open latest recorded strategy' in Doctor Quant.")
 
 
 if __name__ == "__main__":

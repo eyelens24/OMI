@@ -88,7 +88,7 @@ def bounded_counterfactuals(rows):
 def make_reproducibility_receipt(snapshot_id, summary, lineage=None):
     if not snapshot_id:
         raise ValueError("Reproducibility receipt requires snapshot_id")
-    payload = {"snapshot_id": snapshot_id, "summary": summary or {}, "lineage": lineage or {}, "boundary": BOUNDARY, "schema": "omi-reproducibility/v1"}
+    payload = {"snapshot_id": snapshot_id, "summary": summary or {}, "lineage": lineage or {}, "boundary": BOUNDARY, "schema": "doctorquant-reproducibility/v1"}
     return {**payload, "receipt_id": source_hash(payload)[:20], "generated_at": datetime.now(timezone.utc).isoformat(), "limitations": ["Receipt fingerprints supplied local evidence and deterministic metadata.", "It does not establish production accuracy, causality, broker truth, or permission to trade."]}
 
 

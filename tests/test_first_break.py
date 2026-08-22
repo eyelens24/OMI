@@ -1,5 +1,5 @@
 import unittest
-from omi_core.ledger import assess_lifecycle, first_break
+from doctorquant_core.ledger import assess_lifecycle, first_break
 
 class FirstBreakTests(unittest.TestCase):
     def test_returns_first_non_supported_step_with_receipt(self):
