@@ -56,6 +56,162 @@ The app binds to `127.0.0.1` and has no live-trading controls.
 
 ---
 
+## Install and start OMI
+
+### Requirements
+
+- Python 3.10 or newer.
+- A current web browser.
+- No Python packages are required for the main application; it uses the Python standard library.
+- Node.js is optional and is needed only for frontend and Playwright verification.
+
+Confirm that Python is available:
+
+```text
+Windows:  py -3 --version
+macOS:    python3 --version
+```
+
+If the command is missing or reports a version older than 3.10, install a current Python 3 release before continuing.
+
+### Windows
+
+1. Download or clone OMI and open PowerShell in the OMI folder.
+2. Start the application:
+
+   ```powershell
+   py -3 .\run-omi.py
+   ```
+
+   If `py` is unavailable but `python` works, use `python .\run-omi.py`.
+3. Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in a browser.
+4. Leave PowerShell open while using OMI. Press `Ctrl+C` there to stop it.
+
+You can alternatively double-click `Start-OMI-Server.cmd`; it tries the included Conda path first and then the normal Windows Python launchers.
+
+Check the local server:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/healthz
+```
+
+### macOS
+
+1. Download or clone OMI and open Terminal in the OMI folder.
+2. Start the application:
+
+   ```bash
+   python3 run-omi.py
+   ```
+
+   Or use the included launcher:
+
+   ```bash
+   chmod +x start-omi.sh Start-OMI.command
+   ./start-omi.sh
+   ```
+
+   After it has execute permission, `Start-OMI.command` can also be opened from Finder.
+3. Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in a browser.
+4. Leave Terminal open while using OMI. Press `Control+C` to stop it.
+
+Check the local server:
+
+```bash
+curl http://127.0.0.1:8000/healthz
+```
+
+### Use another port
+
+If port `8000` is already occupied, choose another local port:
+
+```powershell
+# Windows PowerShell
+$env:PORT = "8001"
+py -3 .\run-omi.py
+```
+
+```bash
+# macOS
+PORT=8001 python3 run-omi.py
+```
+
+Then open `http://127.0.0.1:8001`. Recorder examples must use the same port in their `--server` URL.
+
+---
+
+## How to use OMI
+
+### 1. Explore the complete built-in example
+
+1. Start OMI and open the local dashboard.
+2. Click **Run complete CSV demo**.
+3. Select AAPL, MSFT, NVDA, JPM, or XOM above the position chart.
+4. Click any point. The line shows shares held and the coloured dots show BUY, SELL, and HOLD decisions.
+5. Read the **Algorithm Action Receipt** for the latest decision, saved reason, intended size, fill, resulting position, and P&L.
+6. Expand **What the algorithm knew** to inspect the inputs available before that decision.
+7. Open **Show verification details** to inspect the linked evidence chain.
+8. Click **Export reproducibility receipt** to save the investigation as JSON.
+
+Each demo stock behaves independently: AAPL uses RSI, MSFT uses momentum, NVDA uses a volatility gate, JPM uses bank fundamentals, and XOM uses oil and inventory indicators.
+
+### 2. Analyse your own combined CSV
+
+Click **Upload one incident CSV** and select a local file. Recommended columns are:
+
+| Column | Requirement | Meaning |
+| --- | --- | --- |
+| `timestamp` | Required | ISO-8601 time for the record. |
+| `pnl` | Required for statistical analysis | P&L for the observation. Aliases such as `net_pnl` and `realized_pnl` are normalized. |
+| `symbol` | Recommended | Stock or instrument identifier. |
+| `action` | Recommended | `BUY`, `SELL`, or `HOLD`. |
+| `decision_reason` | Recommended | Explanation retained when the strategy acted. |
+| `position_quantity` | Recommended | Actual shares held. |
+
+Additional pre-decision columns can be indicators; OMI detects their names dynamically. A fully verified receipt also needs the lifecycle and provenance fields described under **Complete-example format** below.
+
+Statistical diagnosis requires at least 50 timestamped rows with numeric P&L. A shorter file can still be useful as typed lifecycle evidence, but it will not produce the full statistical analysis.
+
+### 3. Align market information with strategy results
+
+Use **Upload fundamentals + P&L** when inputs and outcomes are separate:
+
+1. Select the market or fundamental CSV.
+2. Select the strategy/P&L CSV.
+3. OMI joins each strategy observation to the newest market record available at or before its timestamp.
+
+Both files need `timestamp`, both should contain `symbol` for symbol-aware alignment, and the strategy file needs `pnl`. OMI rejects rows that cannot be aligned inside the allowed time gap instead of silently using future information.
+
+### 4. Open a recorded strategy
+
+Keep OMI running and open a second terminal in the project folder.
+
+Windows:
+
+```powershell
+py -3 .\examples\instrumented_strategy.py --server http://127.0.0.1:8000
+```
+
+macOS:
+
+```bash
+python3 examples/instrumented_strategy.py --server http://127.0.0.1:8000
+```
+
+Return to the dashboard and click **Open latest recorded strategy**. OMI displays the decisions and evidence appended by that strategy. The recorder observes the strategy; it never submits an order.
+
+### 5. Understand incomplete results
+
+- **Supported**: the supplied records form a linked and time-valid step.
+- **Missing**: the required event or parent link was not supplied.
+- **Contradicted**: retained records disagree.
+- **Time-invalid**: evidence became available only after the decision.
+- **Inferred**: the result is an investigative hypothesis rather than a retained fact.
+
+OMI does not manufacture missing actions or explanations. A partial CSV can still be analysed, but the dashboard identifies what it cannot prove.
+
+---
+
 ## Connect an unfamiliar trading algorithm
 
 OMI now includes a framework-neutral Python flight recorder in [`omi_core/recorder.py`](omi_core/recorder.py). Its purpose is:
@@ -70,7 +226,7 @@ The recorder observes the algorithm. It never places an order and never needs br
 2. In a second terminal, run:
 
    ```powershell
-   C:\conda2\python.exe examples\instrumented_strategy.py --server http://127.0.0.1:8000
+   py -3 .\examples\instrumented_strategy.py --server http://127.0.0.1:8000
    ```
 
    On macOS/Linux:
@@ -291,29 +447,6 @@ To support another API, subclass `EvidenceConnector` and implement its single `r
 For a mapping-based Python function, OMI can automatically observe which keys are read and capture its returned decision. The connector layer can normalize any source that exposes a readable payload, but each new provider still needs credentials, a fetch function or URL, timestamp semantics, and a field map. OMI cannot inspect arbitrary native code, remote model servers, a pandas pipeline, or a broker account without an adapter at that boundary. It also cannot prove that a provider timestamp is truthful or that a human-written reason is economically correct merely because it was recorded.
 
 Production-grade reconstruction still requires the real system to provide its timestamps, immutable model artifacts, data versions, order/fill events, positions, corporate actions, fees, FX treatment, and accounting marks. The recorder makes these facts comparable and replayable; it does not manufacture facts that the connected systems never expose.
-
----
-
-## Start OMI on Windows
-
-```powershell
-cd C:\Users\User\OMI
-powershell -ExecutionPolicy Bypass -File .\Start-OMI.ps1
-```
-
-Open:
-
-```text
-http://127.0.0.1:8000
-```
-
-The native runtime is:
-
-```text
-C:\conda2\python.exe
-```
-
----
 
 ## Presentation-ready demo
 
@@ -655,7 +788,7 @@ Research questions:
 
 Implemented and tested:
 
-- local-only native Windows startup;
+- local-only Windows and macOS startup;
 - incident CSV and Incident Bundle validation paths;
 - immutable snapshot IDs;
 - no-lookahead replay;
@@ -692,29 +825,35 @@ Still required for production integrations:
 
 # Verification
 
-Run Python/API tests:
+Run the Python/API tests on Windows:
 
 ```powershell
-C:\conda2\python.exe -m unittest discover -s tests -q
+py -3 -m unittest discover -s tests -q
 ```
 
-Check frontend syntax:
+Or on macOS:
+
+```bash
+python3 -m unittest discover -s tests -q
+```
+
+Check frontend syntax on either platform if Node.js is installed:
 
 ```powershell
 node --check .\app.js
 ```
 
-Run browser tests:
+```bash
+node --check app.js
+```
 
-```powershell
+Run the optional browser tests from the project folder:
+
+```text
 npx playwright test
 ```
 
-A release claim requires all of these to pass, plus a local health check:
-
-```powershell
-Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/healthz
-```
+A release claim requires all applicable checks to pass, plus the platform-specific health check documented under **Install and start OMI**.
 
 ---
 
