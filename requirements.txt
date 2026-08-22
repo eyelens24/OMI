@@ -1,0 +1,5 @@
+# OMI currently has no third-party Python runtime dependencies.
+#
+# The application, recorder, connectors, SQLite storage, tests, and local HTTP
+# server use Python's standard library. Keep this file so installation remains
+# conventional and future dependencies have one explicit source of truth.

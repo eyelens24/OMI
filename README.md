@@ -34,6 +34,7 @@ The project is organized by concern so the code, data, and historical archives a
 - `sample_data/full_product_demo.csv` — the single bundled presentation CSV and its generator.
 - `e2e/` — browser-based Playwright end-to-end checks.
 - `examples/` — example payloads and demonstration artifacts.
+- `requirements.txt` — Python runtime dependency manifest; currently standard-library only.
 - `archive/` — historical or superseded experiment notes and deployment artifacts.
 - top-level Python scripts — entry points and utilities for running the app and model workflow.
 
@@ -62,7 +63,7 @@ The app binds to `127.0.0.1` and has no live-trading controls.
 
 - Python 3.10 or newer.
 - A current web browser.
-- No Python packages are required for the main application; it uses the Python standard library.
+- `requirements.txt` is the Python dependency manifest. It is intentionally empty of packages because the current application uses only the Python standard library.
 - Node.js is optional and is needed only for frontend and Playwright verification.
 
 Confirm that Python is available:
@@ -77,15 +78,24 @@ If the command is missing or reports a version older than 3.10, install a curren
 ### Windows
 
 1. Download or clone OMI and open PowerShell in the OMI folder.
-2. Start the application:
+2. Create an isolated Python environment and install the declared requirements:
 
    ```powershell
-   py -3 .\run-omi.py
+   py -3 -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   python -m pip install -r requirements.txt
    ```
 
-   If `py` is unavailable but `python` works, use `python .\run-omi.py`.
-3. Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in a browser.
-4. Leave PowerShell open while using OMI. Press `Ctrl+C` there to stop it.
+   The install currently downloads nothing because OMI has no third-party runtime packages. Keeping this step makes future dependency updates automatic.
+3. Start the application:
+
+   ```powershell
+   python .\run-omi.py
+   ```
+
+   If PowerShell blocks environment activation, use `.\.venv\Scripts\python.exe .\run-omi.py` directly.
+4. Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in a browser.
+5. Leave PowerShell open while using OMI. Press `Ctrl+C` there to stop it.
 
 You can alternatively double-click `Start-OMI-Server.cmd`; it tries the included Conda path first and then the normal Windows Python launchers.
 
@@ -98,10 +108,19 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/healthz
 ### macOS
 
 1. Download or clone OMI and open Terminal in the OMI folder.
-2. Start the application:
+2. Create an isolated Python environment and install the declared requirements:
 
    ```bash
-   python3 run-omi.py
+   python3 -m venv .venv
+   source .venv/bin/activate
+   python -m pip install -r requirements.txt
+   ```
+
+   The install currently downloads nothing because OMI has no third-party runtime packages.
+3. Start the application:
+
+   ```bash
+   python run-omi.py
    ```
 
    Or use the included launcher:
@@ -112,8 +131,8 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/healthz
    ```
 
    After it has execute permission, `Start-OMI.command` can also be opened from Finder.
-3. Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in a browser.
-4. Leave Terminal open while using OMI. Press `Control+C` to stop it.
+4. Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in a browser.
+5. Leave Terminal open while using OMI. Press `Control+C` to stop it.
 
 Check the local server:
 
@@ -128,12 +147,12 @@ If port `8000` is already occupied, choose another local port:
 ```powershell
 # Windows PowerShell
 $env:PORT = "8001"
-py -3 .\run-omi.py
+python .\run-omi.py
 ```
 
 ```bash
 # macOS
-PORT=8001 python3 run-omi.py
+PORT=8001 python run-omi.py
 ```
 
 Then open `http://127.0.0.1:8001`. Recorder examples must use the same port in their `--server` URL.
